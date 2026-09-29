@@ -1,28 +1,40 @@
 package dev.thoremutuner.app
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import dev.thoremutuner.core.CoreInfo
+import dev.thoremutuner.app.ui.nav.AppNav
+import dev.thoremutuner.app.ui.theme.ThorTheme
 
+/**
+ * Single activity. Gamepad mapping (PLAN section 11): B = back, A = activate the focused control
+ * (sent as DPAD_CENTER, which Compose clickables handle). The D-pad moves focus natively.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(background = Color.Black)) {
-                Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                    Text(CoreInfo.APP_NAME, color = Color.White)
-                }
+            ThorTheme {
+                AppNav(container)
             }
         }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_BUTTON_B -> {
+                if (event.action == KeyEvent.ACTION_UP) onBackPressedDispatcher.onBackPressed()
+                return true
+            }
+            KeyEvent.KEYCODE_BUTTON_A -> {
+                val mapped = KeyEvent(
+                    event.downTime, event.eventTime, event.action, KeyEvent.KEYCODE_DPAD_CENTER,
+                    event.repeatCount, event.metaState, event.deviceId, event.scanCode, event.flags, event.source,
+                )
+                return super.dispatchKeyEvent(mapped)
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 }

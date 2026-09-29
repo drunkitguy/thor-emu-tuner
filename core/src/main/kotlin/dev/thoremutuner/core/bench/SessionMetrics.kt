@@ -93,7 +93,7 @@ object MetricsCalculator {
             avgW = avgW,
             p95W = percentile(post.map { it.watts }, 0.95),
             peakW = norm.points.maxOfOrNull { it.watts },
-            energyWh = energyWh(norm.points) ?: if (useFallback && counterW != null) counterW * duration / 3600 else null,
+            energyWh = energyWh(norm.points) ?: if (useFallback) counterW!! * duration / 3600 else null,
             estRuntimeH = avgW?.takeIf { it > 0 }?.let { CoreInfo.THOR_BATTERY_WH / it },
             tempStartC = tempStart,
             tempMaxC = tempMax,
