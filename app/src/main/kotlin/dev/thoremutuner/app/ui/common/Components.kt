@@ -270,9 +270,11 @@ fun <T> ChoiceDialog(
             LazyColumn(Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(options) { (value, label) ->
                     val shape = RoundedCornerShape(10.dp)
+                    val isInitial = value == selected || (selected == null && value == options.first().first)
                     Row(
                         Modifier
                             .fillMaxWidth()
+                            .let { if (isInitial) it.initialFocus() else it }
                             .focusRing(shape)
                             .clickable { onSelect(value) }
                             .heightIn(min = 48.dp)

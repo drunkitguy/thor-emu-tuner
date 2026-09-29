@@ -21,10 +21,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +43,7 @@ import dev.thoremutuner.app.ui.common.EmptyState
 import dev.thoremutuner.app.ui.common.Fmt
 import dev.thoremutuner.app.ui.common.ScreenScaffold
 import dev.thoremutuner.app.ui.common.Tag
+import dev.thoremutuner.app.ui.common.TextInputDialog
 import dev.thoremutuner.app.ui.common.focusRing
 import dev.thoremutuner.app.ui.common.initialFocus
 import dev.thoremutuner.app.ui.theme.ErrorColor
@@ -57,12 +60,26 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
     val ui by vm.ui.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
     val live by vm.live.collectAsStateWithLifecycle()
+    var searching by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh() }
+    if (searching) {
+        TextInputDialog(
+            title = "Search",
+            initial = ui.query,
+            label = "Title or game ID",
+            confirmLabel = "Search",
+            onConfirm = { vm.setQuery(it.trim()); searching = false },
+            onDismiss = { searching = false },
+        )
+    }
 
     ScreenScaffold(
         title = "Library",
         onBack = null,
         actions = {
+            IconButton(onClick = { searching = true }, modifier = Modifier.focusRing(RoundedCornerShape(24.dp))) {
+                Icon(Icons.Filled.Search, contentDescription = "Search")
+            }
             IconButton(onClick = { vm.rescan(force = true) }, modifier = Modifier.focusRing(RoundedCornerShape(24.dp))) {
                 Icon(Icons.Filled.Refresh, contentDescription = "Rescan")
             }
@@ -95,15 +112,15 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
             if (!scan.running && scan.finished && scan.errors > 0) {
                 item { Banner("${scan.errors} file(s) could not be identified (they are still listed).", BannerKind.WARN) }
             }
-            item {
-                OutlinedTextField(
-                    value = ui.query,
-                    onValueChange = vm::setQuery,
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    placeholder = { Text("Search title or ID") },
-                    modifier = Modifier.fillMaxWidth().focusRing(RoundedCornerShape(6.dp)),
-                )
+            if (ui.query.isNotBlank()) {
+                item {
+                    FilterChip(
+                        selected = true,
+                        onClick = { vm.setQuery("") },
+                        label = { Text("Search: \"${ui.query}\" (clear)") },
+                        modifier = Modifier.focusRing(RoundedCornerShape(8.dp)),
+                    )
+                }
             }
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
