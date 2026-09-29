@@ -2,18 +2,18 @@ package dev.thoremutuner.app.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -56,6 +56,7 @@ import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.vm.SettingsViewModel
 import dev.thoremutuner.core.model.SystemId
 import dev.thoremutuner.core.preset.EmulatorDef
+import dev.thoremutuner.core.text.TextBlocks
 
 @Composable
 fun SettingsScreen(container: AppContainer, onBack: () -> Unit, openAbout: () -> Unit, rerunOnboarding: () -> Unit) {
@@ -217,18 +218,12 @@ fun AboutScreen(container: AppContainer, onBack: () -> Unit) {
             sections.orEmpty().forEach { section ->
                 item { Text(section.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp)) }
                 // Focusable blocks of a few lines each, so the D-pad scrolls through long texts.
-                items(textBlocks(section.text)) { block -> FocusableText(block) }
+                items(TextBlocks.split(section.text)) { block -> FocusableText(block) }
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
-
-/** Splits text into paragraphs, and long paragraphs into blocks of at most [maxLines] lines. */
-fun textBlocks(text: String, maxLines: Int = 8): List<String> =
-    text.replace("\r\n", "\n").split(Regex("\n\\s*\n"))
-        .map { it.trimEnd() }.filter { it.isNotBlank() }
-        .flatMap { p -> p.lines().chunked(maxLines).map { it.joinToString("\n") } }
 
 @Composable
 fun FocusableText(text: String) {

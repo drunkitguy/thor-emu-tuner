@@ -4,24 +4,12 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
-import androidx.compose.foundation.gestures.ScrollableState
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalFocusManager
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,13 +18,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -60,18 +51,30 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,6 +82,7 @@ import dev.thoremutuner.app.ui.theme.ErrorColor
 import dev.thoremutuner.app.ui.theme.FocusColor
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.ui.theme.WarnColor
+import kotlinx.coroutines.launch
 
 /**
  * Visible focus for D-pad/gamepad navigation: a bright ring drawn while this element (or a child)
@@ -144,7 +148,8 @@ fun ScreenScaffold(
     val scope = rememberCoroutineScope()
     var viewportPx by remember { mutableIntStateOf(0) }
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
+        // Edge to edge: keep content clear of status/navigation bars and display cutouts.
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -170,6 +175,9 @@ fun ScreenScaffold(
                     .fillMaxWidth()
                     .weight(1f)
                     .onSizeChanged { viewportPx = it.height }
+                    // Only UP/DOWN are intercepted: LEFT/RIGHT still reach a focused Slider (which
+                    // adjusts on left/right) and horizontal lists. A focused Slider does not use
+                    // UP/DOWN, so moving focus vertically from it is the intended behaviour.
                     .onPreviewKeyEvent { e ->
                         val down = e.key == Key.DirectionDown
                         val up = e.key == Key.DirectionUp
@@ -198,9 +206,12 @@ fun ScreenScaffold(
  * for a few frames until it is laid out. [ready] delays the request until data is loaded.
  */
 @Composable
-fun rememberInitialFocus(ready: Boolean = true): FocusRequester {
+fun rememberInitialFocus(ready: Boolean = true, persistAcrossVisits: Boolean = false): FocusRequester {
     val requester = remember { FocusRequester() }
-    var done by remember { mutableStateOf(false) }
+    // persistAcrossVisits: remembered in the destination's saved state, so returning from another
+    // screen does not move focus back to the start (the screen restores focus itself).
+    val doneState = if (persistAcrossVisits) rememberSaveable { mutableStateOf(false) } else remember { mutableStateOf(false) }
+    var done by doneState
     LaunchedEffect(ready) {
         if (!ready || done) return@LaunchedEffect
         repeat(20) {

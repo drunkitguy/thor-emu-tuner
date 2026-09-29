@@ -25,11 +25,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import dev.thoremutuner.core.bench.TargetFps
 import dev.thoremutuner.app.AppContainer
 import dev.thoremutuner.app.bench.LiveSession
 import dev.thoremutuner.app.bench.ThermalSampler
@@ -46,9 +46,11 @@ import dev.thoremutuner.app.ui.common.TextInputDialog
 import dev.thoremutuner.app.ui.common.ThorButton
 import dev.thoremutuner.app.ui.common.focusRing
 import dev.thoremutuner.app.ui.common.initialFocus
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
 import dev.thoremutuner.app.vm.ResultViewModel
 import dev.thoremutuner.core.bench.IssueLevel
 import dev.thoremutuner.core.bench.Outcome
+import dev.thoremutuner.core.bench.TargetFps
 import dev.thoremutuner.core.bench.TestSession
 
 /** Running view (timer, live W/temp, End test), then the result form (PLAN 9.3), then a summary. */
@@ -105,13 +107,14 @@ private fun Form(vm: ResultViewModel, l: LiveSession) {
     val form by vm.form.collectAsStateWithLifecycle()
     val errors by vm.errors.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<String?>(null) }
+    val firstFocus = rememberInitialFocus()
     if (l.powerIncomplete) {
         Banner("The app was closed during the test: power data is incomplete (only the samples taken before that are used).", BannerKind.WARN)
     }
     Text("Test of ${Fmt.duration(l.elapsedSec)} recorded (${l.session.samples.size} samples). Enter what you saw in the emulator's overlay.",
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     SectionCard("Outcome") {
-        ChipRow(Outcome.entries.toList(), form.outcome, { it.label }, first = true) { o -> vm.update { it.copy(outcome = o) } }
+        ChipRow(Outcome.entries.toList(), form.outcome, { it.label }, firstModifier = Modifier.focusRequester(firstFocus)) { o -> vm.update { it.copy(outcome = o) } }
     }
     SectionCard("Frame rate") {
         LabeledValue("Average FPS" + if (form.outcome == Outcome.CRASH) " (optional)" else " (required)", form.avgFps.ifEmpty { "-" })
@@ -167,14 +170,14 @@ private fun NumberDialog(title: String, initial: String, onOk: (String) -> Unit,
 }
 
 @Composable
-private fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, first: Boolean = false, onPick: (T) -> Unit) {
+private fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, firstModifier: Modifier = Modifier, onPick: (T) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(options) { o ->
             FilterChip(
                 selected = o == selected,
                 onClick = { onPick(o) },
                 label = { Text(label(o)) },
-                modifier = Modifier.focusRing(RoundedCornerShape(8.dp)).let { if (first && o == options.first()) it.initialFocus() else it },
+                modifier = (if (o == options.first()) firstModifier else Modifier).focusRing(RoundedCornerShape(8.dp)),
             )
         }
     }

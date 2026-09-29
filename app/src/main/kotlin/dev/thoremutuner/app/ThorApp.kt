@@ -21,6 +21,7 @@ import dev.thoremutuner.core.store.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.File
 
 class ThorApp : Application() {
@@ -58,6 +59,11 @@ class AppContainer(context: Context) {
     val battery = BatterySampler(appContext)
     val thermal = ThermalSampler(appContext)
     val sessions = SessionController(appContext, store, sessionRepo, battery, appScope)
+
+    init {
+        // Parse the bundled preset JSON off the main thread before the first screen needs it.
+        appScope.launch(Dispatchers.IO) { runCatching { presets.emulators } }
+    }
 
     /** This app's own versionName (for exports). */
     val appVersion: String by lazy {

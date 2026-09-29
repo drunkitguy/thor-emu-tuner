@@ -1,18 +1,5 @@
 package dev.thoremutuner.app.ui.apply
 
-import dev.thoremutuner.core.profile.SettingValue
-import dev.thoremutuner.app.ui.settings.textBlocks
-import dev.thoremutuner.app.ui.settings.FocusableText
-import dev.thoremutuner.app.ui.common.rememberInitialFocus
-import dev.thoremutuner.app.ui.common.launchSafely
-import dev.thoremutuner.app.ui.common.GridAction
-import dev.thoremutuner.app.ui.common.ButtonGrid
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -26,6 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Share
@@ -37,7 +28,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,16 +40,23 @@ import dev.thoremutuner.app.apply.ApplyBlock
 import dev.thoremutuner.app.apply.ApplyOutcome
 import dev.thoremutuner.app.ui.common.Banner
 import dev.thoremutuner.app.ui.common.BannerKind
+import dev.thoremutuner.app.ui.common.ButtonGrid
 import dev.thoremutuner.app.ui.common.ButtonStyle
 import dev.thoremutuner.app.ui.common.EmptyState
+import dev.thoremutuner.app.ui.common.GridAction
 import dev.thoremutuner.app.ui.common.LabeledValue
 import dev.thoremutuner.app.ui.common.ScreenScaffold
 import dev.thoremutuner.app.ui.common.SectionCard
 import dev.thoremutuner.app.ui.common.ThorButton
 import dev.thoremutuner.app.ui.common.focusRing
+import dev.thoremutuner.app.ui.common.launchSafely
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
+import dev.thoremutuner.app.ui.settings.FocusableText
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.vm.ApplyViewModel
 import dev.thoremutuner.core.preset.ConfigMode
+import dev.thoremutuner.core.profile.SettingValue
+import dev.thoremutuner.core.text.TextBlocks
 
 @Composable
 fun ApplyScreen(container: AppContainer, key: String, emulatorId: String, onBack: () -> Unit) {
@@ -165,7 +165,7 @@ fun ApplyScreen(container: AppContainer, key: String, emulatorId: String, onBack
             items(r.warnings) { Banner(it, BannerKind.WARN) }
             item { Text("File preview", style = MaterialTheme.typography.titleMedium) }
             // Wrapped lines in focusable blocks: no horizontal scrolling needed, D-pad reaches everything.
-            items(textBlocks(r.text.ifEmpty { "(empty)" })) { FocusableText(it) }
+            items(TextBlocks.split(r.text.ifEmpty { "(empty)" })) { FocusableText(it) }
             item { Spacer(Modifier.height(24.dp)) }
         }
     }

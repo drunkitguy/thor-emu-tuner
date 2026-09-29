@@ -64,14 +64,21 @@ class SessionController(
     /**
      * Starts sampling: stores the header and starts the foreground service. Refuses (returns false)
      * while another session is running or waiting for results, so nothing is silently replaced.
+     * Runs on the serial writer, so it is ordered after startup recovery: a recovered session is
+     * always seen (and refused against), never overwritten.
      */
-    fun start(session: TestSession): Boolean {
-        synchronized(lock) {
-            if (state.value != null) return false
-            state.value = LiveSession(session, running = true)
-            draft = null
+    suspend fun start(session: TestSession): Boolean {
+        val accepted = withContext(writer) {
+            synchronized(lock) {
+                if (state.value != null) return@withContext false
+                state.value = LiveSession(session, running = true)
+                draft = null
+            }
+            lastFlush = clock()
+            writeNow()
+            true
         }
-        flush(force = true)
+        if (!accepted) return false
         val intent = Intent(context, TestSessionService::class.java).setAction(TestSessionService.ACTION_START)
         context.startForegroundService(intent)
         return true

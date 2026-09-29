@@ -151,6 +151,7 @@ private fun ScanStep(vm: OnboardingViewModel) {
 @Composable
 private fun ConfigFolders(vm: OnboardingViewModel, finish: () -> Unit) {
     val statuses by vm.statuses.collectAsStateWithLifecycle()
+    val emulators by vm.emulators.collectAsStateWithLifecycle()
     var pending by remember { mutableStateOf<EmulatorDef?>(null) }
     val context = LocalContext.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -163,7 +164,7 @@ private fun ConfigFolders(vm: OnboardingViewModel, finish: () -> Unit) {
         style = MaterialTheme.typography.bodyMedium,
     )
     ThorButton("Finish", finish, modifier = Modifier.initialFocus())
-    vm.emulators.forEach { def ->
+    emulators.forEach { def ->
         val st = statuses[def.emulatorId]
         SectionCard(def.name) {
             Text(def.configTarget.folderToGrant.orEmpty(), style = MaterialTheme.typography.bodyMedium)

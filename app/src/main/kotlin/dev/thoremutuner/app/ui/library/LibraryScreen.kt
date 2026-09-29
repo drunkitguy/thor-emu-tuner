@@ -30,11 +30,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -55,6 +55,7 @@ import dev.thoremutuner.app.ui.common.ScreenScaffold
 import dev.thoremutuner.app.ui.common.Tag
 import dev.thoremutuner.app.ui.common.TextInputDialog
 import dev.thoremutuner.app.ui.common.focusRing
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
 import dev.thoremutuner.app.ui.theme.ErrorColor
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.ui.theme.WarnColor
@@ -71,26 +72,32 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
     val live by vm.live.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    // Focus: first row on the first visit; on return, the row of the game that was opened.
-    // Requested only on resume, so filter changes and scrolling never steal focus.
-    var lastOpened by rememberSaveable { mutableStateOf<String?>(null) }
-    val rowFocus = remember { FocusRequester() }
-    var resumeToken by remember { mutableIntStateOf(0) }
+    // Focus rules:
+    // - first visit: the first row, once (remembered in saved state, so it never fires again when
+    //   the list refreshes, filters change or the user comes back);
+    // - returning from an opened game: that game's row, once.
+    val visibleNow = ui.visible
+    val firstFocus = rememberInitialFocus(ready = visibleNow.isNotEmpty(), persistAcrossVisits = true)
+    var restoreKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val restoreFocus = remember { FocusRequester() }
+    var restoreToken by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         vm.refresh()
-        resumeToken++
+        if (restoreKey != null) restoreToken++
     }
-    val visibleNow = ui.visible
-    val focusKey = lastOpened?.takeIf { k -> visibleNow.any { it.game.key == k } } ?: visibleNow.firstOrNull()?.game?.key
-    LaunchedEffect(resumeToken, focusKey != null) {
-        if (focusKey == null) return@LaunchedEffect
+    LaunchedEffect(restoreToken) {
+        if (restoreToken == 0) return@LaunchedEffect
         repeat(20) {
             withFrameNanos { }
-            if (runCatching { rowFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { restoreFocus.requestFocus() }.isSuccess) {
+                restoreKey = null
+                return@LaunchedEffect
+            }
         }
+        restoreKey = null
     }
     val open: (String) -> Unit = { key ->
-        lastOpened = key
+        restoreKey = key
         openGame(key)
     }
     if (searching) {
@@ -188,7 +195,12 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
                 item { EmptyState("No games match the filters.") }
             }
             items(visible, key = { it.game.key }) { row ->
-                GameRowItem(row, onClick = { open(row.game.key) }, modifier = if (row.game.key == focusKey) Modifier.focusRequester(rowFocus) else Modifier)
+                val rowModifier = when {
+                    row.game.key == restoreKey -> Modifier.focusRequester(restoreFocus)
+                    row.game.key == visible.first().game.key -> Modifier.focusRequester(firstFocus)
+                    else -> Modifier
+                }
+                GameRowItem(row, onClick = { open(row.game.key) }, modifier = rowModifier)
             }
             item { Spacer(Modifier.height(24.dp)) }
         }

@@ -2,7 +2,6 @@
 
 package dev.thoremutuner.app.ui.game
 
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +23,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -56,6 +57,7 @@ import dev.thoremutuner.app.ui.common.Tag
 import dev.thoremutuner.app.ui.common.TextInputDialog
 import dev.thoremutuner.app.ui.common.ThorButton
 import dev.thoremutuner.app.ui.common.focusRing
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.ui.theme.WarnColor
 import dev.thoremutuner.app.vm.GameViewModel
@@ -79,6 +81,7 @@ fun GameScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh() }
 
     val scroll = rememberScrollState()
+    val firstFocus = rememberInitialFocus(ready = !ui.loading)
     ScreenScaffold(title = ui.game?.title ?: "Game", onBack = onBack, scrollState = scroll) { pad ->
         if (ui.notFound) {
             EmptyState("This game is no longer in the library. Rescan or go back.")
@@ -98,16 +101,18 @@ fun GameScreen(
             }
             val sel = ui.selected
             val emuId = sel?.def?.emulatorId
-            ButtonGrid(
-                listOf(
-                    GridAction("Launch", { vm.requestLaunch(context) }, Icons.Filled.PlayArrow, enabled = sel?.installed == true && !ui.launching, style = ButtonStyle.PRIMARY, focusFirst = true),
+            val actions = listOf(
+                    GridAction("Launch", { vm.requestLaunch(context) }, Icons.Filled.PlayArrow, enabled = sel?.installed == true && !ui.launching, style = ButtonStyle.PRIMARY),
                     GridAction("Choose baseline", { emuId?.let(openBaseline) }, Icons.Filled.Star, enabled = sel != null),
                     GridAction(if (sel?.def?.isFull == false) "Manual settings" else "Tweak", { emuId?.let(openTweak) }, Icons.Filled.Edit, enabled = sel != null),
                     GridAction(if (sel?.def?.isFull == false) "Checklist" else "Apply", { emuId?.let(openApply) }, Icons.Filled.Check, enabled = sel != null),
                     GridAction("Run test", { emuId?.let(openTest) }, Icons.Filled.DateRange, enabled = sel?.installed == true),
                     GridAction("History (${ui.sessionCount})", openHistory, Icons.AutoMirrored.Filled.List),
-                ),
-            )
+                )
+            // Chosen once, when the data is first loaded: later enable/disable changes (emulator
+            // switches, launching) never move focus.
+            val focusIndex = remember(ui.loading) { if (ui.loading) -1 else actions.indexOfFirst { it.enabled } }
+            ButtonGrid(actions.mapIndexed { i, a -> if (i == focusIndex) a.copy(modifier = Modifier.focusRequester(firstFocus)) else a })
 
             SectionCard("Game") {
                 LabeledValue("System", game.system.displayName)

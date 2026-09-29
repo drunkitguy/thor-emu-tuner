@@ -22,8 +22,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -52,6 +54,17 @@ data class PreflightUi(
     val canStart: Boolean get() = loaded && !charging && revision != null && target != null && !busy && !liveSession
 }
 
+private data class Loaded(
+    val lastPerfMode: String,
+    val lastFanMode: String,
+    val game: Game?,
+    val revision: ProfileRevision?,
+    val target: InstalledTarget?,
+    val battery: BatterySnapshot?,
+    val displays: Int,
+    val needsApply: Boolean,
+)
+
 class TestViewModel(private val c: AppContainer, private val key: String, emulatorId: String) : ViewModel() {
     private val def = c.presets.emulator(emulatorId)
     private val _ui = MutableStateFlow(PreflightUi(def = def))
@@ -70,23 +83,31 @@ class TestViewModel(private val c: AppContainer, private val key: String, emulat
     fun refresh() {
         viewModelScope.launch {
             val d = def ?: return@launch
-            val next = withContext(Dispatchers.IO) {
+            val loaded = withContext(Dispatchers.IO) {
                 val settings = c.settings.get()
                 val game = c.library.get().games.firstOrNull { it.key == key }
                 val rev = c.profiles.get(key).firstOrNull { it.emulatorId == d.emulatorId }?.latest
-                _ui.value.copy(
-                    loaded = true,
-                    game = game,
-                    revision = rev,
-                    target = c.installed.resolve(d, settings.preferredPackage[d.emulatorId]),
-                    battery = runCatching { c.battery.snapshot() }.getOrNull(),
-                    displays = c.battery.displayCount(),
-                    needsApply = game != null && c.applier.needsApply(game, d, rev),
-                    perfMode = _ui.value.perfMode.ifEmpty { settings.lastPerfMode },
-                    fanMode = _ui.value.fanMode.ifEmpty { settings.lastFanMode },
+                Loaded(
+                    settings.lastPerfMode, settings.lastFanMode, game, rev,
+                    c.installed.resolve(d, settings.preferredPackage[d.emulatorId]),
+                    runCatching { c.battery.snapshot() }.getOrNull(),
+                    c.battery.displayCount(),
+                    game != null && c.applier.needsApply(game, d, rev),
                 )
             }
-            _ui.value = next
+            // Merge into the latest state (the user may have changed modes/duration meanwhile).
+            val cur = _ui.value
+            _ui.value = cur.copy(
+                loaded = true,
+                game = loaded.game,
+                revision = loaded.revision,
+                target = loaded.target,
+                battery = loaded.battery,
+                displays = loaded.displays,
+                needsApply = loaded.needsApply,
+                perfMode = cur.perfMode.ifEmpty { loaded.lastPerfMode },
+                fanMode = cur.fanMode.ifEmpty { loaded.lastFanMode },
+            )
         }
     }
 
@@ -147,7 +168,7 @@ class TestViewModel(private val c: AppContainer, private val key: String, emulat
                 externalDisplay = pre.externalDisplay,
                 chargeCounterStartUah = snap?.chargeCounterUah,
             )
-            if (!c.sessions.start(session)) {
+            if (!c.sessions.start(session)) { // suspends: ordered after startup recovery
                 _ui.value = _ui.value.copy(busy = false, liveSession = true)
                 return@launch
             }
@@ -195,20 +216,25 @@ class ResultViewModel(private val c: AppContainer, private val handle: SavedStat
     private val _form = MutableStateFlow(ResultForm())
 
     init {
-        val sessionId = c.sessions.live.value?.session?.id
-        val saved = handle.get<String>(KEY_FORM) ?: c.sessions.draft?.takeIf { it.first == sessionId }?.second
-        val restored = saved?.let { runCatching { Json.decodeFromString(ResultForm.serializer(), it) }.getOrNull() }
-        if (restored != null) {
-            _form.value = restored
-        } else {
-            // Default target FPS from the game's system (PLAN section 9.3).
-            viewModelScope.launch {
-                val key = c.sessions.live.value?.session?.gameKey ?: return@launch
-                val system = c.library.get().games.firstOrNull { it.key == key }?.system ?: return@launch
-                if (_form.value == ResultForm()) _form.value = _form.value.copy(targetFps = TargetFps.defaultFor(system))
+        // Process death / configuration change: restore synchronously.
+        handle.get<String>(KEY_FORM)?.let(::decode)?.let { _form.value = it }
+        viewModelScope.launch {
+            // recover() runs asynchronously at startup: wait briefly for the session to appear.
+            val live = c.sessions.live.value ?: withTimeoutOrNull(LIVE_WAIT_MS) { c.sessions.live.first { it != null } }
+                ?: return@launch
+            if (_form.value != ResultForm()) return@launch // restored or already edited
+            val draft = c.sessions.draft?.takeIf { it.first == live.session.id }?.second?.let(::decode)
+            if (draft != null) {
+                _form.value = draft
+                return@launch
             }
+            // Default target FPS from the game's system (PLAN section 9.3).
+            val system = c.library.get().games.firstOrNull { it.key == live.session.gameKey }?.system ?: return@launch
+            if (_form.value == ResultForm()) _form.value = _form.value.copy(targetFps = TargetFps.defaultFor(system))
         }
     }
+
+    private fun decode(json: String): ResultForm? = runCatching { Json.decodeFromString(ResultForm.serializer(), json) }.getOrNull()
 
     private fun persist() {
         val json = Json.encodeToString(ResultForm.serializer(), _form.value)
@@ -245,5 +271,6 @@ class ResultViewModel(private val c: AppContainer, private val handle: SavedStat
 
     companion object {
         private const val KEY_FORM = "resultForm"
+        private const val LIVE_WAIT_MS = 3_000L
     }
 }

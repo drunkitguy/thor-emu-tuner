@@ -61,14 +61,12 @@ class LibraryViewModel(private val c: AppContainer) : ViewModel() {
                 val settings = c.settings.get()
                 val games = c.library.get().games
                 val withProfiles = c.store.list("profiles").map { it.removeSuffix(".json") }.toSet()
-                val withSessions = c.store.list("sessions").map { it.removeSuffix(".json") }.toSet()
+                // Lightweight index (count + last result per game): no session samples are read.
+                val summaries = runCatching { c.sessionRepo.summaries() }.getOrDefault(emptyMap())
                 val rows = games.map { g ->
                     val emuId = settings.gameEmulator[g.key] ?: settings.preferredEmulator[g.system.id]
                     val emu = emuId?.let { c.presets.emulator(it) } ?: c.presets.emulatorsFor(g.system).firstOrNull()
-                    val outcome = if (g.key in withSessions) {
-                        runCatching { c.sessionRepo.get(g.key).maxByOrNull { it.startedAt }?.result?.outcome }.getOrNull()
-                    } else null
-                    GameRow(g, emu?.name, g.key in withProfiles, outcome)
+                    GameRow(g, emu?.name, g.key in withProfiles, summaries[g.key]?.lastOutcome)
                 }
                 val lost = settings.romFolders.count { !c.saf.hasPermission(it.treeUri, write = false) }
                 Triple(rows, lost, settings.romFolders.size)

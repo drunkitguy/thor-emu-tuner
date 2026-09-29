@@ -1,8 +1,16 @@
 package dev.thoremutuner.app.ui.nav
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
@@ -19,15 +28,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.thoremutuner.app.AppContainer
-import dev.thoremutuner.core.store.StorageCheck
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.unit.dp
 import dev.thoremutuner.app.ui.apply.ApplyScreen
 import dev.thoremutuner.app.ui.game.GameScreen
 import dev.thoremutuner.app.ui.history.CompareScreen
@@ -40,6 +40,9 @@ import dev.thoremutuner.app.ui.settings.SettingsScreen
 import dev.thoremutuner.app.ui.test.ResultScreen
 import dev.thoremutuner.app.ui.test.TestScreen
 import dev.thoremutuner.app.ui.tweak.TweakScreen
+import dev.thoremutuner.core.store.StorageCheck
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -169,7 +172,7 @@ fun AppNav(container: AppContainer) {
 @Composable
 private fun NewerDataScreen(files: List<String>) {
     Column(
-        Modifier.fillMaxSize().background(Color.Black).padding(24.dp),
+        Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Update Thor Emu Tuner", style = MaterialTheme.typography.titleLarge, color = Color.White)

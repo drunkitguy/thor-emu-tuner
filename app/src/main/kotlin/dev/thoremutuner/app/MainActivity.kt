@@ -1,9 +1,12 @@
 package dev.thoremutuner.app
 
+import android.graphics.Color
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import dev.thoremutuner.app.ui.nav.AppNav
 import dev.thoremutuner.app.ui.theme.ThorTheme
 
@@ -13,6 +16,12 @@ import dev.thoremutuner.app.ui.theme.ThorTheme
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // targetSdk 35 draws edge to edge; opt in explicitly (also on Android 13) with light icons on
+        // the true-black UI. ScreenScaffold pads content by the safe-drawing insets.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         setContent {
             ThorTheme {
