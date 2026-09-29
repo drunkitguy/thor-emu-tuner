@@ -109,7 +109,7 @@ private fun Form(vm: ResultViewModel, l: LiveSession) {
         errors["avgFps"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         ThorButton("Enter average FPS", { editing = "avg" }, style = ButtonStyle.SECONDARY)
         Text("Target FPS")
-        ChipRow(listOf(30, 50, 60, 0), form.targetFps, { if (it == 0) "Other" + (form.customTarget.takeIf { c -> c.isNotBlank() }?.let { c -> " ($c)" } ?: "") else "$it" }) { t ->
+        ChipRow(dev.thoremutuner.core.bench.TargetFps.CHOICES + 0, form.targetFps, { if (it == 0) "Other" + (form.customTarget.takeIf { c -> c.isNotBlank() }?.let { c -> " ($c)" } ?: "") else "$it" }) { t ->
             if (t == 0) editing = "target" else vm.update { it.copy(targetFps = t) }
         }
         errors["targetFps"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }

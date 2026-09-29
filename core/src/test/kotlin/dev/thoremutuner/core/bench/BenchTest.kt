@@ -185,6 +185,12 @@ class BenchTest {
         assertEquals(-2.0, row.delta!!, 1e-9)
     }
 
+    @Test fun targetFpsDefaultsBySystem() {
+        assertEquals(60, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.PSP))
+        assertEquals(30, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.SWITCH))
+        assertEquals(30, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.N64))
+    }
+
     @Test fun historyGroupsByRevision() {
         val s = listOf(base.copy(id = "1", rev = 1, startedAt = 1), base.copy(id = "2", rev = 2, startedAt = 2), base.copy(id = "3", rev = 1, startedAt = 3))
         val groups = Comparison.groupByRevision(s)

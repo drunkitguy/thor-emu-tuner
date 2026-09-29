@@ -12,6 +12,7 @@ import dev.thoremutuner.app.emu.LaunchResult
 import dev.thoremutuner.core.bench.IssueLevel
 import dev.thoremutuner.core.bench.Outcome
 import dev.thoremutuner.core.bench.SessionResult
+import dev.thoremutuner.core.bench.TargetFps
 import dev.thoremutuner.core.bench.TestSession
 import dev.thoremutuner.core.model.Game
 import dev.thoremutuner.core.preset.EmulatorDef
@@ -162,6 +163,16 @@ data class ResultForm(
 class ResultViewModel(private val c: AppContainer) : ViewModel() {
     val live: StateFlow<LiveSession?> = c.sessions.live
     private val _form = MutableStateFlow(ResultForm())
+
+    init {
+        // Default target FPS from the game's system (PLAN section 9.3).
+        viewModelScope.launch {
+            val key = c.sessions.live.value?.session?.gameKey ?: return@launch
+            val system = c.library.get().games.firstOrNull { it.key == key }?.system ?: return@launch
+            if (_form.value == ResultForm()) _form.value = _form.value.copy(targetFps = TargetFps.defaultFor(system))
+        }
+    }
+
     val form: StateFlow<ResultForm> = _form.asStateFlow()
     private val _errors = MutableStateFlow<Map<String, String>>(emptyMap())
     val errors: StateFlow<Map<String, String>> = _errors.asStateFlow()

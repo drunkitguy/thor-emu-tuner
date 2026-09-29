@@ -31,6 +31,20 @@ enum class Outcome(val label: String) {
     CRASH("Crash"),
 }
 
+/**
+ * Default target FPS offered in the result form, by system (PAL detection is not attempted). Most
+ * systems target 60; N64 and Switch libraries are dominated by 30 FPS titles. The user can always
+ * change it.
+ */
+object TargetFps {
+    val CHOICES = listOf(30, 50, 60)
+
+    fun defaultFor(system: dev.thoremutuner.core.model.SystemId): Int = when (system) {
+        dev.thoremutuner.core.model.SystemId.N64, dev.thoremutuner.core.model.SystemId.SWITCH -> 30
+        else -> 60
+    }
+}
+
 /** The user-entered result form (PLAN section 9.3). */
 @Serializable
 data class SessionResult(
