@@ -19,15 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
---------------------------------------------------------------------------------
-
-Third-party test fixtures
-
-The files in core/src/test/resources/fixtures/ (other than NOTICE.md) are short
-excerpts of emulator configuration files. They are NOT covered by the MIT license
-above: each remains under its original license (GPL-2.0-or-later or
-GPL-3.0-or-later) and copyright holders, as listed in
-core/src/test/resources/fixtures/NOTICE.md. The full license texts are in
-core/src/test/resources/fixtures/LICENSE-GPL-2.0.txt and LICENSE-GPL-3.0.txt.
-These files are used only by unit tests and are not part of the app.

@@ -163,8 +163,14 @@ Flycast, Winlator and ES-DE projects, whose documentation and code made this pos
 is not affiliated with AYN or with any emulator project.
 
 Test fixtures under `core/src/test/resources/fixtures` include short excerpts of emulator config
-files for round-trip tests; see the `NOTICE.md` there for their origin and licenses.
+files for round-trip tests. They are **not** MIT-licensed; see the `NOTICE.md` there for their origin
+and licenses.
 
 ## License
 
 [MIT](LICENSE), copyright Thor Emu Tuner contributors.
+
+Exception: the test fixtures in `core/src/test/resources/fixtures/` are third-party excerpts that stay
+under their original licenses (GPL-2.0-or-later or GPL-3.0-or-later), not MIT. See
+`core/src/test/resources/fixtures/NOTICE.md` and the license texts next to it. They are used only by
+unit tests and are not part of the app.
