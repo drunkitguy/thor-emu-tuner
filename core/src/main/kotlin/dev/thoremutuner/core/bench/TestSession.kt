@@ -37,19 +37,23 @@ enum class Outcome(val label: String) {
  * change it.
  */
 object TargetFps {
-    val CHOICES = listOf(30, 50, 60)
+    val CHOICES = listOf(30.0, 50.0, 60.0)
 
-    fun defaultFor(system: dev.thoremutuner.core.model.SystemId): Int = when (system) {
-        dev.thoremutuner.core.model.SystemId.N64, dev.thoremutuner.core.model.SystemId.SWITCH -> 30
-        else -> 60
+    fun defaultFor(system: dev.thoremutuner.core.model.SystemId): Double = when (system) {
+        dev.thoremutuner.core.model.SystemId.N64, dev.thoremutuner.core.model.SystemId.SWITCH -> 30.0
+        else -> 60.0
     }
+
+    /** "60", "59.94". */
+    fun label(v: Double): String = if (v == Math.floor(v)) v.toLong().toString() else v.toString()
 }
 
 /** The user-entered result form (PLAN section 9.3). */
 @Serializable
 data class SessionResult(
     val avgFps: Double?,
-    val targetFps: Int,
+    /** Target frame rate; decimals such as 59.94 are allowed. */
+    val targetFps: Double,
     val minFps: Double? = null,
     val stutter: Int,
     val audio: IssueLevel,
@@ -67,7 +71,7 @@ data class SessionResult(
         } else if (avgFps != null && (!avgFps.isFinite() || avgFps < 0.0 || avgFps > 1000.0)) {
             put("avgFps", "Must be between 0 and 1000")
         }
-        if (targetFps !in 1..240) put("targetFps", "Target FPS must be 1-240")
+        if (!targetFps.isFinite() || targetFps < 1.0 || targetFps > 240.0) put("targetFps", "Target FPS must be 1-240")
         if (minFps != null) {
             if (!minFps.isFinite() || minFps < 0.0) put("minFps", "Must be 0 or more")
             else if (avgFps != null && minFps > avgFps) put("minFps", "Lowest FPS cannot exceed the average")

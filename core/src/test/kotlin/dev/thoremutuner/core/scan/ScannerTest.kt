@@ -171,6 +171,22 @@ class ScannerTest {
         assertEquals("ULES00001", result.games.first { it.fileName == "Good.iso" }.id!!.value)
     }
 
+    @Test fun unreadableRootThrowsSoTheCallerKeepsPreviousEntries() {
+        val tree = FakeTree().add("gc/Game.iso", Fixtures.gcIso())
+        val failing = object : TreeAccess {
+            override fun children(dirDocumentId: String): List<DocEntry> = throw SecurityException("revoked")
+            override fun open(documentId: String): ByteSource = tree.open(documentId)
+        }
+        kotlin.test.assertFailsWith<SecurityException> { scanner.collect(tree.root(), failing) }
+        // Sub-folder listing failures are tolerated (that folder is skipped).
+        val subFails = object : TreeAccess {
+            override fun children(dirDocumentId: String): List<DocEntry> =
+                if (dirDocumentId.endsWith("/gc")) throw java.io.IOException("x") else tree.children(dirDocumentId)
+            override fun open(documentId: String): ByteSource = tree.open(documentId)
+        }
+        assertTrue(scanner.collect(tree.root(), subFails).isEmpty())
+    }
+
     @Test fun cacheReusesUnchangedFilesAndForceReprobes() {
         val tree = FakeTree().add("gc/Game.iso", Fixtures.gcIso())
         val first = scanner.scanAll(listOf(tree.root() to tree)).games

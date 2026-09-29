@@ -146,5 +146,14 @@ class PresetValidationTest {
         assertEquals(2, flycast.launchTargets().size)
     }
 
-    private fun inSources(url: String): Boolean = url.startsWith("http") && sources.contains(url)
+    /** Whole-URL match: a prefix of a longer listed URL does not count. */
+    private fun inSources(url: String): Boolean =
+        url.startsWith("http") && Regex("(?<![\\w/.%-])" + Regex.escape(url) + "(?![\\w/.%-])").containsMatchIn(sources)
+
+    @Test
+    fun urlMatchingIsWholeUrl() {
+        assertTrue(inSources("https://raw.githubusercontent.com/libretro/RetroArch/master/config.def.h"))
+        assertTrue(!inSources("https://raw.githubusercontent.com/libretro/RetroArch/master/config"))
+        assertTrue(!inSources("https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cf"))
+    }
 }

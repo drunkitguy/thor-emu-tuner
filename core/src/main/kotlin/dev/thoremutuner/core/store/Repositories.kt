@@ -4,11 +4,14 @@ import dev.thoremutuner.core.bench.TestSession
 import dev.thoremutuner.core.config.AzaharState
 import dev.thoremutuner.core.model.Game
 import dev.thoremutuner.core.profile.GameProfile
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -83,65 +86,75 @@ internal class Codec(private val store: JsonStore, private val json: Json = Thor
     private fun migrate(text: String, version: Int?): String = text
 }
 
-class SettingsRepository(store: JsonStore) {
+class SettingsRepository(store: JsonStore, private val io: CoroutineDispatcher = Dispatchers.IO) {
     private val codec = Codec(store)
     private val mutex = Mutex()
     private val state = MutableStateFlow<AppSettings?>(null)
     val flow: StateFlow<AppSettings?> = state.asStateFlow()
 
-    suspend fun get(): AppSettings = mutex.withLock { current() }
+    suspend fun get(): AppSettings = withContext(io) { mutex.withLock { current() } }
 
-    suspend fun update(transform: (AppSettings) -> AppSettings): AppSettings = mutex.withLock {
-        val next = transform(current())
-        codec.save(PATH, AppSettings.serializer(), next)
-        state.value = next
-        next
+    suspend fun update(transform: (AppSettings) -> AppSettings): AppSettings = withContext(io) {
+        mutex.withLock {
+            val next = transform(current())
+            codec.save(PATH, AppSettings.serializer(), next)
+            state.value = next
+            next
+        }
     }
 
-    private fun current(): AppSettings = state.value ?: codec.load(PATH, AppSettings.serializer()) { AppSettings() }.also { state.value = it }
+    private fun current(): AppSettings =
+        state.value ?: codec.load(PATH, AppSettings.serializer()) { AppSettings() }.also { state.value = it }
 
     companion object { const val PATH = "settings.json" }
 }
 
-class LibraryRepository(store: JsonStore) {
+class LibraryRepository(store: JsonStore, private val io: CoroutineDispatcher = Dispatchers.IO) {
     private val codec = Codec(store)
     private val mutex = Mutex()
     private val state = MutableStateFlow<Library?>(null)
     val flow: StateFlow<Library?> = state.asStateFlow()
 
-    suspend fun get(): Library = mutex.withLock { current() }
+    suspend fun get(): Library = withContext(io) { mutex.withLock { current() } }
 
-    suspend fun save(library: Library) = mutex.withLock {
-        codec.save(PATH, Library.serializer(), library)
-        state.value = library
+    suspend fun save(library: Library) = withContext(io) {
+        mutex.withLock {
+            codec.save(PATH, Library.serializer(), library)
+            state.value = library
+        }
     }
 
-    suspend fun updateGame(key: String, transform: (Game) -> Game): Game? = mutex.withLock {
-        val lib = current()
-        var updated: Game? = null
-        val games = lib.games.map { if (it.key == key) transform(it).also { g -> updated = g } else it }
-        val next = lib.copy(games = games)
-        codec.save(PATH, Library.serializer(), next)
-        state.value = next
-        updated
+    suspend fun updateGame(key: String, transform: (Game) -> Game): Game? = withContext(io) {
+        mutex.withLock {
+            val lib = current()
+            var updated: Game? = null
+            val games = lib.games.map { if (it.key == key) transform(it).also { g -> updated = g } else it }
+            val next = lib.copy(games = games)
+            codec.save(PATH, Library.serializer(), next)
+            state.value = next
+            updated
+        }
     }
 
-    private fun current(): Library = state.value ?: codec.load(PATH, Library.serializer()) { Library() }.also { state.value = it }
+    private fun current(): Library =
+        state.value ?: codec.load(PATH, Library.serializer()) { Library() }.also { state.value = it }
 
     companion object { const val PATH = "library.json" }
 }
 
-class ProfileRepository(store: JsonStore) {
+class ProfileRepository(store: JsonStore, private val io: CoroutineDispatcher = Dispatchers.IO) {
     private val codec = Codec(store)
     private val mutex = Mutex()
 
-    suspend fun get(gameKey: String): List<GameProfile> = mutex.withLock { load(gameKey) }
+    suspend fun get(gameKey: String): List<GameProfile> = withContext(io) { mutex.withLock { load(gameKey) } }
 
     suspend fun update(gameKey: String, transform: (List<GameProfile>) -> List<GameProfile>): List<GameProfile> =
-        mutex.withLock {
-            val next = transform(load(gameKey))
-            codec.save(path(gameKey), ProfilesFile.serializer(), ProfilesFile(profiles = next))
-            next
+        withContext(io) {
+            mutex.withLock {
+                val next = transform(load(gameKey))
+                codec.save(path(gameKey), ProfilesFile.serializer(), ProfilesFile(profiles = next))
+                next
+            }
         }
 
     private fun load(gameKey: String) = codec.load(path(gameKey), ProfilesFile.serializer()) { ProfilesFile() }.profiles
@@ -154,25 +167,31 @@ class ProfileRepository(store: JsonStore) {
     }
 }
 
-class SessionRepository(private val store: JsonStore) {
+class SessionRepository(private val store: JsonStore, private val io: CoroutineDispatcher = Dispatchers.IO) {
     private val codec = Codec(store)
     private val mutex = Mutex()
 
-    suspend fun get(gameKey: String): List<TestSession> = mutex.withLock { load(gameKey) }
+    suspend fun get(gameKey: String): List<TestSession> = withContext(io) { mutex.withLock { load(gameKey) } }
 
     /** Inserts or replaces a session by id. */
-    suspend fun upsert(session: TestSession) = mutex.withLock {
-        val list = load(session.gameKey).filterNot { it.id == session.id } + session
-        codec.save(path(session.gameKey), SessionsFile.serializer(), SessionsFile(sessions = list.sortedBy { it.startedAt }))
+    suspend fun upsert(session: TestSession) = withContext(io) {
+        mutex.withLock {
+            val list = load(session.gameKey).filterNot { it.id == session.id } + session
+            codec.save(path(session.gameKey), SessionsFile.serializer(), SessionsFile(sessions = list.sortedBy { it.startedAt }))
+        }
     }
 
-    suspend fun delete(gameKey: String, id: String) = mutex.withLock {
-        val list = load(gameKey).filterNot { it.id == id }
-        codec.save(path(gameKey), SessionsFile.serializer(), SessionsFile(sessions = list))
+    suspend fun delete(gameKey: String, id: String) = withContext(io) {
+        mutex.withLock {
+            val list = load(gameKey).filterNot { it.id == id }
+            codec.save(path(gameKey), SessionsFile.serializer(), SessionsFile(sessions = list))
+        }
     }
 
-    suspend fun all(): List<TestSession> = mutex.withLock {
-        store.list("sessions").filter { it.endsWith(".json") }.flatMap { load(it.removeSuffix(".json")) }
+    suspend fun all(): List<TestSession> = withContext(io) {
+        mutex.withLock {
+            store.list("sessions").filter { it.endsWith(".json") }.flatMap { load(it.removeSuffix(".json")) }
+        }
     }
 
     private fun load(gameKey: String) = codec.load(path(gameKey), SessionsFile.serializer()) { SessionsFile() }.sessions
@@ -185,12 +204,29 @@ class SessionRepository(private val store: JsonStore) {
     }
 }
 
-class AzaharStateRepository(store: JsonStore) {
+class AzaharStateRepository(store: JsonStore, private val io: CoroutineDispatcher = Dispatchers.IO) {
     private val codec = Codec(store)
     private val mutex = Mutex()
 
-    suspend fun get(): AzaharState = mutex.withLock { codec.load(PATH, AzaharState.serializer()) { AzaharState() } }
-    suspend fun save(state: AzaharState) = mutex.withLock { codec.save(PATH, AzaharState.serializer(), state) }
+    suspend fun get(): AzaharState = withContext(io) { mutex.withLock { codec.load(PATH, AzaharState.serializer()) { AzaharState() } } }
+    suspend fun save(state: AzaharState) = withContext(io) { mutex.withLock { codec.save(PATH, AzaharState.serializer(), state) } }
 
     companion object { const val PATH = "azahar_state.json" }
+}
+
+/**
+ * Startup check: files written by a newer app version (higher schemaVersion) must not be read or
+ * overwritten. Returns the offending paths; the app shows an error instead of crashing.
+ */
+object StorageCheck {
+    fun newerSchemaFiles(store: JsonStore, json: Json = ThorJson.store): List<String> {
+        val paths = listOf(SettingsRepository.PATH, LibraryRepository.PATH, AzaharStateRepository.PATH) +
+            store.list("profiles").filter { it.endsWith(".json") }.map { "profiles/$it" } +
+            store.list("sessions").filter { it.endsWith(".json") }.map { "sessions/$it" }
+        return paths.filter { p ->
+            val text = store.read(p) ?: return@filter false
+            val v = runCatching { json.parseToJsonElement(text).jsonObject["schemaVersion"]?.jsonPrimitive?.int }.getOrNull()
+            v != null && v > CURRENT_SCHEMA
+        }
+    }
 }

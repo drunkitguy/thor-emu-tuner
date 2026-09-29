@@ -12,7 +12,7 @@ class BenchTest {
     private fun session(
         samples: List<Sample>,
         durationSec: Int = 600,
-        result: SessionResult? = SessionResult(60.0, 60, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS),
+        result: SessionResult? = SessionResult(60.0, 60.0, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS),
         start: Long? = null, end: Long? = null,
         version: String = "2506", perf: String = "Balanced", fan: String = "Auto",
     ) = TestSession(
@@ -113,8 +113,30 @@ class BenchTest {
         assertNotNull(full.avgPowerFromCounterW)
     }
 
+    @Test fun killedSessionFallsBackToChargeCounter() {
+        // The service died after ~40 s: 20 samples, but the session spans its full 10 min wall clock
+        // (recovered with endedAt = now and a fresh charge-counter snapshot).
+        val samples = steady(-1_500_000, seconds = 38)
+        val s = session(samples, durationSec = 600, start = 5_000_000, end = 4_500_000)
+        val m = MetricsCalculator.compute(s)
+        assertTrue(m.validSamples < m.expectedSamples / 2)
+        assertTrue(m.usedCounterFallback)
+        // 500 mAh over 600 s = 3 A; at 4.0 V = 12 W.
+        assertEquals(12.0, m.avgW!!, 1e-9)
+        assertEquals(2.0, m.energyWh!!, 1e-9) // 12 W for 600 s
+        // Without an end counter there is nothing to fall back to.
+        assertFalse(MetricsCalculator.compute(session(samples, durationSec = 600, start = 5_000_000, end = null)).usedCounterFallback)
+    }
+
+    @Test fun decimalTargetFps() {
+        val r = SessionResult(59.94, 59.94, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS)
+        assertTrue(r.validate().isEmpty())
+        assertEquals("59.94", TargetFps.label(59.94))
+        assertEquals("60", TargetFps.label(60.0))
+    }
+
     @Test fun resultFormEnforcesRequiredFields() {
-        val ok = SessionResult(58.5, 60, 45.0, 2, IssueLevel.NONE, IssueLevel.MINOR, Outcome.PLAYABLE_WITH_ISSUES, "fine")
+        val ok = SessionResult(58.5, 60.0, 45.0, 2, IssueLevel.NONE, IssueLevel.MINOR, Outcome.PLAYABLE_WITH_ISSUES, "fine")
         assertTrue(ok.validate().isEmpty())
         assertTrue("avgFps" in ok.copy(avgFps = null).validate())
         assertTrue(ok.copy(avgFps = null, outcome = Outcome.CRASH).validate().isEmpty(), "FPS optional for a crash")
@@ -122,7 +144,7 @@ class BenchTest {
         assertTrue("stutter" in ok.copy(stutter = 0).validate())
         assertTrue("stutter" in ok.copy(stutter = 6).validate())
         assertTrue("notes" in ok.copy(notes = "x".repeat(501)).validate())
-        assertTrue("targetFps" in ok.copy(targetFps = 0).validate())
+        assertTrue("targetFps" in ok.copy(targetFps = 0.0).validate())
         assertTrue("avgFps" in ok.copy(avgFps = Double.NaN).validate())
     }
 
@@ -158,8 +180,8 @@ class BenchTest {
     }
 
     @Test fun winnerOrdering() {
-        val faster = metered(session(steady(-2_000_000), result = SessionResult(60.0, 60, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS)))
-        val slower = metered(session(steady(-1_000_000), result = SessionResult(50.0, 60, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS)))
+        val faster = metered(session(steady(-2_000_000), result = SessionResult(60.0, 60.0, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS)))
+        val slower = metered(session(steady(-1_000_000), result = SessionResult(50.0, 60.0, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS)))
         // Speed decides first even though the faster one uses more power.
         val c = Comparison.compare(slower, faster)
         assertEquals(Side.B, c.winner); assertEquals("speed", c.decidedBy)
@@ -186,9 +208,9 @@ class BenchTest {
     }
 
     @Test fun targetFpsDefaultsBySystem() {
-        assertEquals(60, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.PSP))
-        assertEquals(30, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.SWITCH))
-        assertEquals(30, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.N64))
+        assertEquals(60.0, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.PSP))
+        assertEquals(30.0, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.SWITCH))
+        assertEquals(30.0, TargetFps.defaultFor(dev.thoremutuner.core.model.SystemId.N64))
     }
 
     @Test fun historyGroupsByRevision() {

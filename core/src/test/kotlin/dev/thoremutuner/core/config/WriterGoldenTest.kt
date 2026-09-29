@@ -79,7 +79,12 @@ class WriterGoldenTest {
                     assertTrue(v.value.toIntOrNull() != null, "enum ${v.key} must be an integer")
                 }
             }
-            assertEquals("0", doc.get("System", "use_docked_mode").takeIf { preset.id != "thor-quality" } ?: "0")
+            // Section placement: use_docked_mode lives in [System], resolution_setup in [Renderer].
+            val docked = values.first { it.key == "use_docked_mode" }.value
+            assertEquals(docked, doc.get("System", "use_docked_mode"))
+            assertEquals(null, doc.get("Renderer", "use_docked_mode"))
+            assertEquals(values.first { it.key == "resolution_setup" }.value, doc.get("Renderer", "resolution_setup"))
+            assertEquals(null, doc.get("System", "resolution_setup"))
         }
         val doc = IniDocument.parse(EdenIniBuilder.build(PresetResolver.resolve(d, "thor-balanced"), d))
         assertTrue(doc.get("System", "use_docked_mode") != null)

@@ -104,6 +104,12 @@ class LaunchPlannerTest {
         assertEquals(1, plan.warnings.size)
     }
 
+    @Test fun edenWithoutProfileSaysSo() {
+        val plan = ready("eden", i = inputs.copy(customSettingsIni = null))
+        assertEquals("android.intent.action.VIEW", plan.primary.action)
+        assertTrue(plan.warnings.single().startsWith("No saved profile yet"))
+    }
+
     @Test fun retroArchExactIntent() {
         val expected = IntentSpec(
             packageName = "com.retroarch.aarch64",

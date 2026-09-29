@@ -85,7 +85,11 @@ object LaunchPlanner {
                 when (val a = resolve(alt, target, inputs)) {
                     is Resolved.Ok -> {
                         attempts += LaunchAttempt(a.spec, appliesSettings = false, "plain launch; settings not applied")
-                        warnings += "This game has no title ID, so ${def.name} starts it without the tuned settings."
+                        warnings += if (primary.error == LaunchError.MissingTitleId) {
+                            "This game has no title ID, so ${def.name} starts it without the tuned settings."
+                        } else {
+                            "No saved profile yet, so ${def.name} starts the game with its own settings."
+                        }
                     }
                     is Resolved.Err -> return LaunchPlan.Failed(a.error)
                 }

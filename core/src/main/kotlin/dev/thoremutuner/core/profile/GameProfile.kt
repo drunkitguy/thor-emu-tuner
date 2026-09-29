@@ -27,6 +27,8 @@ data class ProfileRevision(
     val createdAt: Long,
     val appliedAt: Long? = null,
     val appliedEmulatorVersion: String? = null,
+    /** Target path the revision was written to (a changed core or game ID means it must be re-applied). */
+    val appliedPath: String? = null,
     /** Refs ("section/key") the user edited by hand in this revision's lineage (enables Dolphin hacks). */
     val userEditedRefs: List<String> = emptyList(),
 )

@@ -34,10 +34,11 @@ object ProfileService {
         rev: Int,
         at: Long,
         emulatorVersion: String?,
+        appliedPath: String? = null,
     ): List<GameProfile> {
         val p = profiles.firstOrNull { it.emulatorId == emulatorId } ?: return profiles
         val updated = p.copy(revisions = p.revisions.map {
-            if (it.rev == rev) it.copy(appliedAt = at, appliedEmulatorVersion = emulatorVersion) else it
+            if (it.rev == rev) it.copy(appliedAt = at, appliedEmulatorVersion = emulatorVersion, appliedPath = appliedPath) else it
         })
         return replace(profiles, updated)
     }

@@ -72,6 +72,9 @@ class Scanner(private val maxDepth: Int = 4) {
                 }
             }
         }
+        // Listing the root itself must succeed: an unreadable root throws, so the caller keeps the
+        // previous library entries instead of dropping every game of this folder.
+        listings[root.rootDocumentId] = access.children(root.rootDocumentId)
         walk(root.rootDocumentId, 1, SystemId.fromFolderName(root.displayName))
 
         fun resolve(parentId: String, relative: String): DocEntry? {

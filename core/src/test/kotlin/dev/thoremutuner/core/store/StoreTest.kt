@@ -34,7 +34,7 @@ class StoreTest {
         ProfileRepository(store).update(game.key) { ProfileService.addRevision(it, game.key, "ppsspp", "thor-balanced", listOf(SettingValue("Graphics", "InternalResolution", "4")), "Baseline", 10).first }
         val session = TestSession(id = "s1", gameKey = game.key, emulatorId = "ppsspp", packageName = "org.ppsspp.ppsspp", emulatorVersion = "1.19", rev = 1,
             startedAt = 100, endedAt = 700, plannedDurationSec = 600, samples = listOf(Sample(0, -1_000_000, 4000)),
-            result = SessionResult(60.0, 60, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS))
+            result = SessionResult(60.0, 60.0, null, 1, IssueLevel.NONE, IssueLevel.NONE, Outcome.PASS))
         SessionRepository(store).upsert(session)
 
         // Fresh repositories read everything back from the store.
@@ -79,6 +79,21 @@ class StoreTest {
         assertTrue("settings.json.corrupt" in store.paths)
         store.write("library.json", "{\"schemaVersion\": 99}")
         assertFailsWith<NewerSchemaException> { LibraryRepository(store).get() }
+    }
+
+    @Test fun storageCheckFindsNewerSchemas() {
+        val store = InMemoryJsonStore()
+        store.write("settings.json", "{\"schemaVersion\": 1}")
+        store.write("profiles/0123456789abcdef.json", "{\"schemaVersion\": 2, \"profiles\": []}")
+        store.write("sessions/0123456789abcdef.json", "{\"schemaVersion\": 1}")
+        assertEquals(listOf("profiles/0123456789abcdef.json"), StorageCheck.newerSchemaFiles(store))
+        assertTrue(StorageCheck.newerSchemaFiles(InMemoryJsonStore()).isEmpty())
+    }
+
+    @Test fun appliedPathIsRecorded() {
+        val (p, _) = ProfileService.addRevision(emptyList(), "k", "retroarch", null, emptyList(), "a", 1)
+        val applied = ProfileService.markApplied(p, "retroarch", 1, 5, "1.19", "config/Snes9x/Game.cfg")
+        assertEquals("config/Snes9x/Game.cfg", applied.single().revision(1)!!.appliedPath)
     }
 
     @Test fun gameKeysAreValidatedForPaths() {

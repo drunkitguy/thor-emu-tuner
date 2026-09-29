@@ -259,7 +259,7 @@ CHD decompression, ECM, NKit, XCI title IDs (filename only), CIA/TMD parsing, Dr
 
 - Parse and preserve line order, comments (`#` or `;`), blank lines, unknown sections and unknown keys. Keys may contain `\` and `.`.
 - `get(section, key)` and `set(section, key, value)` use case-sensitive keys. A missing section is appended at the end. A missing key goes after the last key of its section.
-- Serialize with the emulator's separator. Always write `\n` line endings.
+- Serialize with the emulator's separator. Write `\n` line endings, except that a file which consistently uses CRLF keeps CRLF (PPSSPP's own `compat.ini` does), so untouched files round-trip byte for byte; files with mixed endings are normalized to `\n`.
 - An empty section name `""` means top-level lines (RetroArch).
 - Round-trip tests: parse(x).serialize() == x for fixture files taken verbatim from the emulators' default configs, trimmed to 50 lines.
 

@@ -52,6 +52,27 @@ class ProjectHygieneTest {
     }
 
     @Test
+    fun rootAgpCoordinatesMatchVersionCatalog() {
+        val catalog = TestFiles.file("gradle/libs.versions.toml").readText()
+        val agp = Regex("(?m)^agp = \"([^\"]+)\"").find(catalog)!!.groupValues[1]
+        val root = TestFiles.file("build.gradle.kts").readText()
+        assertTrue("com.android.tools.build:gradle:$agp" in root, "root build.gradle.kts must use AGP $agp")
+    }
+
+    @Test
+    fun thirdPartyFixturesAreLicensedSeparately() {
+        val dir = TestFiles.file("core/src/test/resources/fixtures")
+        val notice = TestFiles.file("core/src/test/resources/fixtures/NOTICE.md").readText()
+        assertTrue("NOT covered by this repository's MIT license" in notice)
+        for (spdx in listOf("GPL-2.0-or-later", "GPL-3.0-or-later")) assertTrue(spdx in notice, spdx)
+        for (f in listOf("LICENSE-GPL-2.0.txt", "LICENSE-GPL-3.0.txt")) {
+            val text = java.io.File(dir, f).readText()
+            assertTrue("GNU GENERAL PUBLIC LICENSE" in text, f)
+        }
+        assertTrue("core/src/test/resources/fixtures" in TestFiles.file("LICENSE").readText())
+    }
+
+    @Test
     fun appBuildPinsSdkLevels() {
         val gradle = TestFiles.file("app/build.gradle.kts").readText()
         assertTrue(Regex("compileSdk\\s*=\\s*35").containsMatchIn(gradle))
