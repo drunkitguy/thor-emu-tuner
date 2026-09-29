@@ -19,7 +19,9 @@ buildscript {
     }
     dependencies {
         if (appIncluded) {
-            classpath(libs.android.gradle.plugin)
+            // Literal coordinates: version-catalog accessors are not reliably available inside
+            // buildscript {}. Keep in sync with `agp` in gradle/libs.versions.toml (a :core test checks).
+            classpath("com.android.tools.build:gradle:8.7.3")
         }
     }
 }

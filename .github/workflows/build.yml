@@ -47,8 +47,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK packages
+        # ubuntu-latest ships the Android SDK with ANDROID_HOME set; only make sure the
+        # platform and build tools used by AGP are present and licenses are accepted.
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Compute version
         id: version
         run: |
