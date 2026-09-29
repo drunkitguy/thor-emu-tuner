@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Publish a release with this tag (e.g. v0.1.0). Leave empty for a plain build.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -57,9 +62,13 @@ jobs:
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Compute version
         id: version
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             NAME="${GITHUB_REF#refs/tags/v}"
+          elif [[ "${RELEASE_TAG}" == v* ]]; then
+            NAME="${RELEASE_TAG#v}"
           else
             NAME="0.0.0-dev+$(git rev-parse --short HEAD)"
           fi
@@ -99,7 +108,9 @@ jobs:
 
   release:
     needs: apk
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Runs for a pushed v* tag, or for a manual run given a release_tag (the tag is
+    # then created on the run's commit by the release action).
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.event.inputs.release_tag, 'v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -113,11 +124,13 @@ jobs:
           cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           files: |
             thor-emu-tuner-*.apk
             SHA256SUMS.txt
           # 0.x releases are pre-releases.
-          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
+          prerelease: ${{ startsWith(github.event.inputs.release_tag || github.ref_name, 'v0.') }}
           generate_release_notes: true
           body: |
             **Read before installing**
