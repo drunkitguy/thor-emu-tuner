@@ -204,19 +204,25 @@ class SessionRepository(private val store: JsonStore, private val io: CoroutineD
      * files if the index is missing (e.g. data from an older build), then kept up to date.
      */
     suspend fun summaries(): Map<String, SessionSummary> = withContext(io) {
-        mutex.withLock {
-            if (store.read(INDEX) == null) {
-                val all = store.list("sessions").filter { it.endsWith(".json") }.map { it.removeSuffix(".json") }
-                    .filter { KEY.matches(it) }
-                val games = all.associateWith { summaryOf(load(it)) }.filterValues { it != null }.mapValues { it.value!! }
-                codec.save(INDEX, SessionIndex.serializer(), SessionIndex(games = games))
-            }
-            codec.load(INDEX, SessionIndex.serializer()) { SessionIndex() }.games
+        mutex.withLock { loadIndexOrRebuild().games }
+    }
+
+    /** The index, rebuilt from the session files (and saved) when the file is missing. */
+    private fun loadIndexOrRebuild(): SessionIndex {
+        if (store.read(INDEX) == null) {
+            val all = store.list("sessions").filter { it.endsWith(".json") }.map { it.removeSuffix(".json") }
+                .filter { KEY.matches(it) }
+            val games = all.associateWith { summaryOf(load(it)) }.filterValues { it != null }.mapValues { it.value!! }
+            val rebuilt = SessionIndex(games = games)
+            codec.save(INDEX, SessionIndex.serializer(), rebuilt)
+            return rebuilt
         }
+        return codec.load(INDEX, SessionIndex.serializer()) { SessionIndex() }
     }
 
     private fun updateIndex(gameKey: String, list: List<TestSession>) {
-        val index = codec.load(INDEX, SessionIndex.serializer()) { SessionIndex() }
+        // Missing index (older data): rebuild from all session files first, never start empty.
+        val index = loadIndexOrRebuild()
         val summary = summaryOf(list)
         val games = if (summary == null) index.games - gameKey else index.games + (gameKey to summary)
         codec.save(INDEX, SessionIndex.serializer(), index.copy(games = games))

@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +83,7 @@ fun GameScreen(
 
     val scroll = rememberScrollState()
     val firstFocus = rememberInitialFocus(ready = !ui.loading)
+    var pressed by rememberSaveable { mutableStateOf<String?>(null) }
     ScreenScaffold(title = ui.game?.title ?: "Game", onBack = onBack, scrollState = scroll) { pad ->
         if (ui.notFound) {
             EmptyState("This game is no longer in the library. Rescan or go back.")
@@ -102,16 +104,20 @@ fun GameScreen(
             val sel = ui.selected
             val emuId = sel?.def?.emulatorId
             val actions = listOf(
-                    GridAction("Launch", { vm.requestLaunch(context) }, Icons.Filled.PlayArrow, enabled = sel?.installed == true && !ui.launching, style = ButtonStyle.PRIMARY),
-                    GridAction("Choose baseline", { emuId?.let(openBaseline) }, Icons.Filled.Star, enabled = sel != null),
-                    GridAction(if (sel?.def?.isFull == false) "Manual settings" else "Tweak", { emuId?.let(openTweak) }, Icons.Filled.Edit, enabled = sel != null),
-                    GridAction(if (sel?.def?.isFull == false) "Checklist" else "Apply", { emuId?.let(openApply) }, Icons.Filled.Check, enabled = sel != null),
-                    GridAction("Run test", { emuId?.let(openTest) }, Icons.Filled.DateRange, enabled = sel?.installed == true),
-                    GridAction("History (${ui.sessionCount})", openHistory, Icons.AutoMirrored.Filled.List),
+                    GridAction("Launch", { pressed = "launch"; vm.requestLaunch(context) }, Icons.Filled.PlayArrow, enabled = sel?.installed == true && !ui.launching, style = ButtonStyle.PRIMARY, id = "launch"),
+                    GridAction("Choose baseline", { pressed = "baseline"; emuId?.let(openBaseline) }, Icons.Filled.Star, enabled = sel != null, id = "baseline"),
+                    GridAction(if (sel?.def?.isFull == false) "Manual settings" else "Tweak", { pressed = "tweak"; emuId?.let(openTweak) }, Icons.Filled.Edit, enabled = sel != null, id = "tweak"),
+                    GridAction(if (sel?.def?.isFull == false) "Checklist" else "Apply", { pressed = "apply"; emuId?.let(openApply) }, Icons.Filled.Check, enabled = sel != null, id = "apply"),
+                    GridAction("Run test", { pressed = "test"; emuId?.let(openTest) }, Icons.Filled.DateRange, enabled = sel?.installed == true, id = "test"),
+                    GridAction("History (${ui.sessionCount})", { pressed = "history"; openHistory() }, Icons.AutoMirrored.Filled.List, id = "history"),
                 )
-            // Chosen once, when the data is first loaded: later enable/disable changes (emulator
-            // switches, launching) never move focus.
-            val focusIndex = remember(ui.loading) { if (ui.loading) -1 else actions.indexOfFirst { it.enabled } }
+            // Chosen once per visit, when the data is loaded: the button pressed before leaving
+            // (saved key, e.g. after returning from Tweak) if enabled, else the first enabled one.
+            // Later enable/disable changes (emulator switches, launching) never move focus.
+            val focusIndex = remember(ui.loading) {
+                if (ui.loading) -1
+                else actions.indexOfFirst { it.id == pressed && it.enabled }.takeIf { it >= 0 } ?: actions.indexOfFirst { it.enabled }
+            }
             ButtonGrid(actions.mapIndexed { i, a -> if (i == focusIndex) a.copy(modifier = Modifier.focusRequester(firstFocus)) else a })
 
             SectionCard("Game") {

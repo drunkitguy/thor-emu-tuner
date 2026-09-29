@@ -19,6 +19,8 @@ data class GridAction(
     val style: ButtonStyle = ButtonStyle.SECONDARY,
     /** Extra modifier for this button, e.g. a screen-level focus requester. */
     val modifier: Modifier = Modifier,
+    /** Stable id (labels may change, e.g. "History (3)"), used to restore focus. */
+    val id: String = label,
 )
 
 /**

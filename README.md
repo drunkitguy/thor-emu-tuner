@@ -67,7 +67,7 @@ It exists only so that updates install over older builds without uninstalling.
 - **1/3 ROM folders**: press *Add folder* and pick your ROMs root (for example `ROMs` containing
   `gc`, `ps2`, `psp`, `3ds`, `switch` ...) or one folder per system. Folder names follow ES-DE
   conventions. Android does not allow picking the storage root, `Download` or `Android/data`.
-- **2/3 Scan**: the app reads only small parts of each file (at most 256 KiB) to find game IDs.
+- **2/3 Scan**: the app reads only small parts of each file (about 256 KiB, up to ~400 KiB for disc images; never the whole ROM) to find game IDs.
   Unreadable files are still listed with a note.
 - **3/3 Emulator config folders** (optional): grant the folders the app may write to, then *Finish*.
   - *Dolphin*: in the folder picker open the menu (≡) and choose **Dolphin** (Dolphin exposes its
@@ -108,7 +108,9 @@ It exists only so that updates install over older builds without uninstalling.
 9. **History**: select two sessions and press **Compare**. The better value of each metric is
    highlighted. A **Not comparable** badge means the two tests differ in something that affects
    power or speed (duration by more than 20%, starting battery temperature by more than 5 °C,
-   emulator version, performance or fan mode): repeat the test under the same conditions.
+   emulator version, performance or fan mode, or the current-unit heuristic applied to only one of
+   them; see [Benchmark method and its limits](#benchmark-method-and-its-limits)): repeat the test
+   under the same conditions.
 
 For reference-only emulators the **Tweak** and **Apply** buttons become **Manual settings** and
 **Checklist**: you record what you set inside the emulator, and nothing is written.
@@ -170,7 +172,9 @@ Limits you should know about:
 - Battery temperature lags the SoC; thermal status is a coarse 0-6 scale.
 - Background apps, screen brightness and the second screen all affect power. Keep them constant
   between A and B.
-- If Android kills the app during a session, power falls back to the battery charge counter.
+- If Android closes the app during a session, the test ends when you reopen it. If you are back
+  within 5 minutes of the planned end and not charging, average power is estimated from the battery
+  charge counter; otherwise the result is marked "power data incomplete".
 
 ## Privacy
 

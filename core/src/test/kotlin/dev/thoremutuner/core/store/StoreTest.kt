@@ -110,6 +110,24 @@ class StoreTest {
         assertTrue(store.read(SessionRepository.INDEX) != null)
     }
 
+    @Test fun writingWithAMissingIndexRebuildsItFromAllSessionFiles() = runBlocking {
+        val store = InMemoryJsonStore()
+        val repo = SessionRepository(store)
+        fun s(id: String, key: String, at: Long) = TestSession(id = id, gameKey = key, emulatorId = "ppsspp", packageName = null,
+            emulatorVersion = null, rev = 1, startedAt = at, plannedDurationSec = 60)
+        val other = "fedcba9876543210"
+        repo.upsert(s("a", game.key, 1))
+        repo.upsert(s("b", game.key, 2))
+        store.delete(SessionRepository.INDEX) // e.g. data written by an older build
+        repo.upsert(s("c", other, 3)) // a write for a different game must not drop game.key
+        val summaries = repo.summaries()
+        assertEquals(SessionSummary(2, 2, null), summaries[game.key])
+        assertEquals(SessionSummary(1, 3, null), summaries[other])
+        store.delete(SessionRepository.INDEX)
+        repo.delete(other, "c")
+        assertEquals(setOf(game.key), repo.summaries().keys)
+    }
+
     @Test fun sessionIndexIsNeverMistakenForAGameKey() = runBlocking {
         val store = InMemoryJsonStore()
         val repo = SessionRepository(store)
