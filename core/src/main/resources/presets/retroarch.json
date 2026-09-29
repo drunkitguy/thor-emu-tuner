@@ -57,9 +57,9 @@
     },
     {
       "section": "", "key": "run_ahead_secondary_instance", "label": "Run-ahead second instance", "type": "bool", "group": "Latency", "impact": "medium",
-      "default": "false",
-      "description": "Uses a second core instance for run-ahead, which avoids audio glitches with many cores.",
-      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c"
+      "default": "true",
+      "description": "Uses a second core instance for run-ahead, which avoids audio glitches with many cores. On by default in RetroArch.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/config.def.h"
     },
     {
       "section": "", "key": "preemptive_frames_enable", "label": "Preemptive frames", "type": "bool", "group": "Latency", "impact": "medium",
@@ -75,15 +75,15 @@
     },
     {
       "section": "", "key": "video_smooth", "label": "Bilinear filtering", "type": "bool", "group": "Display", "impact": "low",
-      "default": "true",
-      "description": "Smooths pixels when scaling. Off gives sharp pixels.",
-      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+      "default": "false",
+      "description": "Smooths pixels when scaling. Off (RetroArch's Android default) gives sharp pixels.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/config.def.h"
     },
     {
       "section": "", "key": "video_shader_enable", "label": "Shaders enabled", "type": "bool", "group": "Display", "impact": "medium",
-      "default": "false",
-      "description": "Master switch for shader presets (the preset itself is chosen inside RetroArch).",
-      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+      "default": "true",
+      "description": "Master switch for shader presets (the preset itself is chosen inside RetroArch). On by default; it only matters once a preset is loaded.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/config.def.h"
     },
     {
       "section": "", "key": "video_frame_delay", "label": "Frame delay (ms)", "type": "int", "group": "Latency", "impact": "medium",
@@ -93,9 +93,9 @@
     },
     {
       "section": "", "key": "audio_latency", "label": "Audio latency (ms)", "type": "int", "group": "Audio", "impact": "low",
-      "min": 16, "max": 256, "step": 8, "default": "64",
-      "description": "Audio buffer size. Raise if you hear crackling.",
-      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+      "min": 16, "max": 256, "step": 8, "default": "128",
+      "description": "Audio buffer size. RetroArch uses 128 ms on Android because 64 ms is too low for most devices. Lower it only if you hear no crackling.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/config.def.h"
     },
     {
       "section": "", "key": "fps_show", "label": "Show FPS", "type": "bool", "group": "Testing", "impact": "low",
@@ -137,9 +137,9 @@
         { "section": "", "key": "run_ahead_enabled", "value": "false", "description": "Run-ahead off.",
           "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md", "reason": "Run-ahead multiplies core CPU cost; the guide warns the machine must run the core that many times faster.",
           "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c" },
-        { "section": "", "key": "video_smooth", "value": "true", "description": "Bilinear filtering (RetroArch default).",
-          "source": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg",
-          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" },
+        { "section": "", "key": "video_smooth", "value": "true", "description": "Bilinear filtering: a softer image instead of sharp pixels.",
+          "source": "inferred", "reason": "N64 and PS1 output (240p-480i with 3D geometry) is scaled by a non-integer factor to the 1080p panel; bilinear filtering hides the uneven pixel sizes. This is a taste choice, not RetroArch's default (config.def.h sets video_smooth off on Android).",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/config.def.h" },
         { "section": "", "key": "fps_show", "value": "true", "description": "FPS counter.",
           "source": "inferred", "reason": "Required by this app's test procedure.",
           "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" }

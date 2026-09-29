@@ -109,7 +109,8 @@ Values that come only from community guides we could not open are marked `"sourc
 |---|---|
 | https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c | Override lookup (core library_name / game name); run-ahead key names. |
 | https://raw.githubusercontent.com/libretro/RetroArch/master/frontend/drivers/platform_unix.c | Android default dirs: /storage/emulated/0/RetroArch/config when writable. |
-| https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg | Key names and defaults for video/audio keys. |
+| https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg | Key names for video/audio keys (its commented defaults are generic, not Android-specific). |
+| https://raw.githubusercontent.com/libretro/RetroArch/master/config.def.h | Built-in defaults per platform: on Android video_smooth = false, video_shader_enable = true, run_ahead_secondary_instance = true, audio_latency = 128 ms (fetched during revision round 1). |
 | https://raw.githubusercontent.com/libretro/RetroArch/master/file_path_special.h | `.cfg` extension constant. |
 | https://raw.githubusercontent.com/libretro/docs/master/docs/guides/overrides.md | Override hierarchy and paths. |
 | https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md | Run-ahead semantics and cost. |
