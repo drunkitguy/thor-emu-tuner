@@ -20,7 +20,7 @@
     "extras": [],
     "flags": ["NEW_TASK", "GRANT_READ_URI"],
     "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
-    "notes": "ES-DE: %EMULATOR_ARMSX2% %ACTION%=android.intent.action.VIEW %DATA%=%ROMSAF%. Try the package/activity pairs in listed order (ES-DE find-rule order); the first one that resolves wins."
+    "notes": "ES-DE: %EMULATOR_ARMSX2% %ACTION%=android.intent.action.VIEW %DATA%=%ROMSAF%. Try the package/activity pairs in listed order (ES-DE find-rule order); the first one that resolves wins. The package id 'come.nanodata.armsx2' (with 'come.') is not a typo: it is the spelling in ES-DE's es_find_rules.xml for the ARMSX2 release build (re-checked in review round 2), next to com.armsx2 and com.armsx2.nightly."
   },
   "configTarget": {
     "mode": "manual",

@@ -90,6 +90,41 @@ class StoreTest {
         assertTrue(StorageCheck.newerSchemaFiles(InMemoryJsonStore()).isEmpty())
     }
 
+    @Test fun sessionSummaryIndexTracksCountAndLastOutcome() = runBlocking {
+        val store = InMemoryJsonStore()
+        val repo = SessionRepository(store)
+        fun s(id: String, at: Long, o: Outcome) = TestSession(id = id, gameKey = game.key, emulatorId = "ppsspp", packageName = null,
+            emulatorVersion = null, rev = 1, startedAt = at, plannedDurationSec = 60,
+            result = SessionResult(30.0, 30.0, null, 1, IssueLevel.NONE, IssueLevel.NONE, o))
+        repo.upsert(s("a", 1, Outcome.PASS))
+        repo.upsert(s("b", 2, Outcome.FAIL))
+        assertEquals(SessionSummary(2, 2, Outcome.FAIL), repo.summaries()[game.key])
+        repo.delete(game.key, "b")
+        assertEquals(SessionSummary(1, 1, Outcome.PASS), repo.summaries()[game.key])
+        repo.delete(game.key, "a")
+        assertEquals(null, repo.summaries()[game.key])
+        // A missing index (older data) is rebuilt from the session files once.
+        repo.upsert(s("c", 3, Outcome.CRASH))
+        store.delete(SessionRepository.INDEX)
+        assertEquals(SessionSummary(1, 3, Outcome.CRASH), SessionRepository(store).summaries()[game.key])
+        assertTrue(store.read(SessionRepository.INDEX) != null)
+    }
+
+    @Test fun sessionIndexIsNeverMistakenForAGameKey() = runBlocking {
+        val store = InMemoryJsonStore()
+        val repo = SessionRepository(store)
+        repo.upsert(TestSession(id = "a", gameKey = game.key, emulatorId = "ppsspp", packageName = null, emulatorVersion = null,
+            rev = 1, startedAt = 1, plannedDurationSec = 60))
+        // The index lives outside sessions/, and stray non-key files there are ignored.
+        assertFalse(SessionRepository.INDEX.startsWith("sessions/"))
+        store.write("sessions/notes.json", "{}")
+        store.write("sessions/session_index.json", "{\"schemaVersion\": 1}")
+        assertEquals(listOf("a"), repo.all().map { it.id })
+        store.delete(SessionRepository.INDEX)
+        assertEquals(setOf(game.key), repo.summaries().keys)
+        assertTrue(StorageCheck.newerSchemaFiles(store).isEmpty())
+    }
+
     @Test fun appliedPathIsRecorded() {
         val (p, _) = ProfileService.addRevision(emptyList(), "k", "retroarch", null, emptyList(), "a", 1)
         val applied = ProfileService.markApplied(p, "retroarch", 1, 5, "1.19", "config/Snes9x/Game.cfg")

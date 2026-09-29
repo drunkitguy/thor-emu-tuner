@@ -1,5 +1,6 @@
 package dev.thoremutuner.core.store
 
+import dev.thoremutuner.core.bench.Outcome
 import dev.thoremutuner.core.bench.TestSession
 import dev.thoremutuner.core.config.AzaharState
 import dev.thoremutuner.core.model.Game
@@ -59,6 +60,14 @@ data class ProfilesFile(val schemaVersion: Int = CURRENT_SCHEMA, val profiles: L
 
 @Serializable
 data class SessionsFile(val schemaVersion: Int = CURRENT_SCHEMA, val sessions: List<TestSession> = emptyList())
+
+/** Per-game session summary for the library (count and last result, no samples). */
+@Serializable
+data class SessionSummary(val count: Int, val lastStartedAt: Long, val lastOutcome: Outcome? = null)
+
+/** `session_index.json`: summaries keyed by game key, maintained on every session write. */
+@Serializable
+data class SessionIndex(val schemaVersion: Int = CURRENT_SCHEMA, val games: Map<String, SessionSummary> = emptyMap())
 
 const val CURRENT_SCHEMA = 1
 
@@ -176,8 +185,9 @@ class SessionRepository(private val store: JsonStore, private val io: CoroutineD
     /** Inserts or replaces a session by id. */
     suspend fun upsert(session: TestSession) = withContext(io) {
         mutex.withLock {
-            val list = load(session.gameKey).filterNot { it.id == session.id } + session
-            codec.save(path(session.gameKey), SessionsFile.serializer(), SessionsFile(sessions = list.sortedBy { it.startedAt }))
+            val list = (load(session.gameKey).filterNot { it.id == session.id } + session).sortedBy { it.startedAt }
+            codec.save(path(session.gameKey), SessionsFile.serializer(), SessionsFile(sessions = list))
+            updateIndex(session.gameKey, list)
         }
     }
 
@@ -185,20 +195,53 @@ class SessionRepository(private val store: JsonStore, private val io: CoroutineD
         mutex.withLock {
             val list = load(gameKey).filterNot { it.id == id }
             codec.save(path(gameKey), SessionsFile.serializer(), SessionsFile(sessions = list))
+            updateIndex(gameKey, list)
         }
+    }
+
+    /**
+     * Count and last result per game without reading any samples. Built once from the session
+     * files if the index is missing (e.g. data from an older build), then kept up to date.
+     */
+    suspend fun summaries(): Map<String, SessionSummary> = withContext(io) {
+        mutex.withLock {
+            if (store.read(INDEX) == null) {
+                val all = store.list("sessions").filter { it.endsWith(".json") }.map { it.removeSuffix(".json") }
+                    .filter { KEY.matches(it) }
+                val games = all.associateWith { summaryOf(load(it)) }.filterValues { it != null }.mapValues { it.value!! }
+                codec.save(INDEX, SessionIndex.serializer(), SessionIndex(games = games))
+            }
+            codec.load(INDEX, SessionIndex.serializer()) { SessionIndex() }.games
+        }
+    }
+
+    private fun updateIndex(gameKey: String, list: List<TestSession>) {
+        val index = codec.load(INDEX, SessionIndex.serializer()) { SessionIndex() }
+        val summary = summaryOf(list)
+        val games = if (summary == null) index.games - gameKey else index.games + (gameKey to summary)
+        codec.save(INDEX, SessionIndex.serializer(), index.copy(games = games))
+    }
+
+    private fun summaryOf(list: List<TestSession>): SessionSummary? {
+        val last = list.maxByOrNull { it.startedAt } ?: return null
+        return SessionSummary(list.size, last.startedAt, last.result?.outcome)
     }
 
     suspend fun all(): List<TestSession> = withContext(io) {
         mutex.withLock {
-            store.list("sessions").filter { it.endsWith(".json") }.flatMap { load(it.removeSuffix(".json")) }
+            store.list("sessions").filter { it.endsWith(".json") }.map { it.removeSuffix(".json") }
+                .filter { KEY.matches(it) }.flatMap { load(it) }
         }
     }
 
     private fun load(gameKey: String) = codec.load(path(gameKey), SessionsFile.serializer()) { SessionsFile() }.sessions
 
     companion object {
+        const val INDEX = "session_index.json"
+        private val KEY = Regex("^[0-9a-f]{16}$")
+
         fun path(gameKey: String): String {
-            require(gameKey.matches(Regex("^[0-9a-f]{16}$"))) { "invalid game key" }
+            require(gameKey.matches(KEY)) { "invalid game key" }
             return "sessions/$gameKey.json"
         }
     }
@@ -223,7 +266,7 @@ object StorageCheck {
         val paths = listOf(SettingsRepository.PATH, LibraryRepository.PATH, AzaharStateRepository.PATH) +
             store.list("profiles").filter { it.endsWith(".json") }.map { "profiles/$it" } +
             store.list("sessions").filter { it.endsWith(".json") }.map { "sessions/$it" }
-        return paths.filter { p ->
+        return (paths + SessionRepository.INDEX).filter { p ->
             val text = store.read(p) ?: return@filter false
             val v = runCatching { json.parseToJsonElement(text).jsonObject["schemaVersion"]?.jsonPrimitive?.int }.getOrNull()
             v != null && v > CURRENT_SCHEMA
