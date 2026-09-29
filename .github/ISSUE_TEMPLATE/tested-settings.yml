@@ -1,0 +1,72 @@
+name: Tested settings
+description: Share emulator settings you measured on a device, so presets can move up the evidence ladder.
+title: "[Tested] <emulator> - <game>"
+labels: ["tested-settings"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you! Values reported here can raise a preset from "Starting guess (unverified)" to
+        "Thor-tested" (measured on an AYN Thor), "Odin 2 (same chip)" or "SD 8 Gen 2 general".
+        Please do not include personal information. Screenshots of the emulator overlay are welcome.
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - AYN Thor
+        - AYN Odin 2 / Odin 2 Portal / Odin 2 Mini
+        - Other Snapdragon 8 Gen 2 device
+    validations:
+      required: true
+  - type: input
+    id: emulator
+    attributes:
+      label: Emulator
+      placeholder: "e.g. Dolphin, PPSSPP, Eden, Azahar, RetroArch (core), NetherSX2"
+    validations:
+      required: true
+  - type: input
+    id: emulator-version
+    attributes:
+      label: Emulator version
+      description: As shown in Android Settings > Apps, or in Thor Emu Tuner's game screen.
+      placeholder: "e.g. 2506a"
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game and game ID
+      description: Title plus the ID Thor Emu Tuner shows (game ID, serial, disc ID or title ID).
+      placeholder: "e.g. Super Mario Sunshine (GMSE01)"
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      description: The settings you changed from the baseline, or the exported config file text.
+      render: ini
+    validations:
+      required: true
+  - type: input
+    id: fps
+    attributes:
+      label: Measured FPS
+      description: Average FPS / target, lowest FPS, and test duration (from a Thor Emu Tuner test session if possible).
+      placeholder: "e.g. 59.8 / 60, lowest 52, 10 min"
+    validations:
+      required: true
+  - type: input
+    id: modes
+    attributes:
+      label: Performance and fan mode
+      placeholder: "e.g. Performance / Smart"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Power (W), temperatures, stutter, audio or graphics issues, anything else worth knowing.

@@ -1,5 +1,9 @@
 # Thor Emu Tuner
 
+> **Status: v0.1.0 has not been run on a Thor or any other physical device yet.** It is built and
+> unit-tested in CI only. Expect rough edges and please report bugs in this repository's
+> [Issues](../../issues).
+
 An Android app for the **AYN Thor** (Snapdragon 8 Gen 2, Android 13, 1920x1080 top screen and
 1080x1240 bottom screen) that helps you choose, apply and **A/B-test per-game emulator settings**.
 
@@ -10,21 +14,37 @@ read-back check), launches the game, and runs a timed test session that records 
 temperature while you play. You enter the FPS you saw; the app keeps a per-game history so you can
 compare two setting revisions side by side.
 
-> **Honesty note.** During research, the community guide sites for the Thor and Odin 2
-> (Retro Game Corps, Retro Handhelds, Joey's Retro Handhelds, Reddit and others) were **unreachable**.
-> Every value in the shipped presets is therefore either taken from the emulators' own source code
-> (for key names and defaults) or is a **starting guess**. All presets currently carry the
-> "Starting guess (unverified)" badge. Treat them as a place to start and use the app's A/B test
-> sessions to find what actually works on your device.
+## There are no community-tested presets yet
+
+During research, the community guide sites for the Thor and Odin 2 (Retro Game Corps, Retro
+Handhelds, Joey's Retro Handhelds, Reddit and others) were **unreachable**. Setting names, value
+ranges and defaults come from the emulators' own source code, but every bundled preset is a
+**"Starting guess (unverified)"**. Treat presets as a place to start and use the app's A/B test
+sessions to find what actually works on your device.
+
+Each preset shows an evidence badge. From strongest to weakest:
+
+1. **Thor-tested**: measured on an AYN Thor.
+2. **Odin 2 (same chip)**: measured on an Odin 2 (same Snapdragon 8 Gen 2).
+3. **SD 8 Gen 2 general**: reported for Snapdragon 8 Gen 2 devices in general.
+4. **Starting guess (unverified)**: reasoning only. A preset can never claim more than its weakest
+   value, and today every preset is at this level.
+
+**Contribute tested values**: run a test session, then open a
+["Tested settings" issue](../../issues/new?template=tested-settings.yml) with the emulator and
+version, the game and its ID, the settings, the measured FPS and your performance/fan mode. Reports
+like these are how presets move up the ladder.
 
 ## Install
 
-1. Open the [Releases](../../releases) page of this repository and download the latest
-   `thor-emu-tuner-<version>.apk`.
+1. Open the [Releases](../../releases) page of this repository and download
+   `thor-emu-tuner-0.1.0.apk` (or the newest version). Optionally compare its checksum with
+   `SHA256SUMS.txt` from the same release (`sha256sum thor-emu-tuner-0.1.0.apk`).
 2. On the Thor, allow your browser or file manager to install unknown apps
    (Settings > Apps > Special app access > Install unknown apps).
-3. Open the APK and install it. Updates install over older versions as long as they are signed
-   with the same key (see below).
+3. Open the APK and install it. **Google Play Protect may warn about or flag the APK**, because it is
+   signed with the public test key described below; this is expected for this project. Updates
+   install over older versions as long as they are signed with the same key.
 
 The app needs Android 11 or newer (minSdk 30). It requests **no** internet, storage or
 all-packages permissions; folders are accessed only through the Storage Access Framework.
@@ -43,27 +63,55 @@ It exists only so that updates install over older builds without uninstalling.
 
 ## First run
 
-1. **Welcome**: what the app does and does not do.
-2. **ROM folders**: press *Add folder* and pick your ROMs root (for example `ROMs` containing
-   `gc`, `ps2`, `psp`, `3ds`, `switch` ...) or one folder per system. Folder names follow ES-DE
-   conventions. Android does not allow picking the storage root, `Download` or `Android/data`.
-3. **Scan**: the app reads only small parts of each file (at most 256 KiB) to find game IDs.
-   Unreadable files are still listed with a note.
-4. **Emulator config folders** (optional): grant the folders the app may write to.
-   - *Dolphin*: in the folder picker open the menu (≡) and choose **Dolphin** (Dolphin exposes its
-     user folder through its own document provider).
-   - *PPSSPP*: the memory-stick folder that contains `PSP` (must be in shared storage).
-   - *Azahar*: the user folder you chose in Azahar (contains `config/config.ini`).
-   - *RetroArch*: `/storage/emulated/0/RetroArch` (contains `config`).
-   - *Eden* needs no folder: its settings travel inside the launch intent.
+- **Welcome**: what the app does and does not do. Press *Get started*.
+- **1/3 ROM folders**: press *Add folder* and pick your ROMs root (for example `ROMs` containing
+  `gc`, `ps2`, `psp`, `3ds`, `switch` ...) or one folder per system. Folder names follow ES-DE
+  conventions. Android does not allow picking the storage root, `Download` or `Android/data`.
+- **2/3 Scan**: the app reads only small parts of each file (at most 256 KiB) to find game IDs.
+  Unreadable files are still listed with a note.
+- **3/3 Emulator config folders** (optional): grant the folders the app may write to, then *Finish*.
+  - *Dolphin*: in the folder picker open the menu (≡) and choose **Dolphin** (Dolphin exposes its
+    user folder through its own document provider). If your Dolphin build does not show a
+    "Dolphin" entry, older installs may use `/storage/emulated/0/dolphin-emu` instead; otherwise use
+    *Copy text* on the Apply screen and enter the values in Dolphin's own per-game settings
+    (long-press the game in Dolphin), or *Export instead* and copy the file with a file manager that
+    can reach Dolphin's folder.
+  - *PPSSPP*: the memory-stick folder that contains `PSP` (must be in shared storage).
+  - *Azahar*: the user folder you chose in Azahar (contains `config/config.ini`).
+  - *RetroArch*: `/storage/emulated/0/RetroArch` (contains `config`). In RetroArch check
+    *Settings > Directory > Config Files*: if it points into `Android/data`, change it to a folder in
+    shared storage (for example `/storage/emulated/0/RetroArch/config`), or use *Export instead* and
+    copy the override file there yourself.
+  - *Eden* needs no folder: its settings travel inside the launch intent.
 
-   You can skip this and grant later in Settings, or use *Export instead* to write files to a
-   folder of your choice and copy them by hand.
-
-Then, for a game: **Choose baseline** > **Tweak** (optional) > **Apply** > **Launch** or
-**Run test**. Every save creates a new, immutable revision.
+  You can skip this and grant later in Settings, or use *Export instead* to write files to a
+  folder of your choice and copy them by hand.
 
 **Gamepad**: the D-pad moves focus (a bright yellow ring), **A** activates, **B** goes back.
+
+## Tune one game, step by step
+
+1. **Library**: select the game.
+2. Check the ID tag (for example `GMSE01 · from header`). If it says *No ID*, press **Edit ID** and
+   type it (the app shows the expected format).
+3. Pick the emulator chip under **Emulator**. For RetroArch, also pick the **RetroArch core**.
+4. **Choose baseline**: read the badge and the values, then press **Use**. This saves rev 1.
+5. **Tweak**: change one thing (each setting explains what it does and shows its impact), press
+   **Save**, add a note ("3x to 2x") and **Save revision**. This saves rev N.
+6. **Apply** shows the target file and old → new values; press **Write**. Or just press
+   **Launch**, which applies the latest revision first.
+7. **Run test**: go through the pre-flight list (unplug the charger, pick the performance and fan
+   mode, pick a duration), press **Start test and launch**, play, then return to the app, press
+   **End test**, enter the average FPS from the emulator's overlay (and the rest of the form) and
+   press **Save result**.
+8. Change **one** setting in Tweak, save it as a new revision and run the same test again.
+9. **History**: select two sessions and press **Compare**. The better value of each metric is
+   highlighted. A **Not comparable** badge means the two tests differ in something that affects
+   power or speed (duration by more than 20%, starting battery temperature by more than 5 °C,
+   emulator version, performance or fan mode): repeat the test under the same conditions.
+
+For reference-only emulators the **Tweak** and **Apply** buttons become **Manual settings** and
+**Checklist**: you record what you set inside the emulator, and nothing is written.
 
 ## Supported emulators
 
@@ -126,6 +174,11 @@ Limits you should know about:
 
 ## Privacy
 
+- Permissions requested: `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE` (the test-session
+  service that samples battery power and temperature), `POST_NOTIFICATIONS` (its notification and
+  the "test time reached" alert; sampling works without it) and `VIBRATE` (that alert).
+- Package visibility is limited to the emulator packages listed in the manifest's `<queries>`; the
+  app cannot see your other apps.
 - No internet permission, no analytics, no crash reporter.
 - The app never reads device serials or other device identifiers.
 - Data lives in app-private storage as JSON. *Export data* writes titles, game IDs, profiles and

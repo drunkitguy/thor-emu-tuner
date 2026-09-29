@@ -107,7 +107,22 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: apk
+      - name: Checksums
+        run: |
+          sha256sum thor-emu-tuner-*.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
-          files: thor-emu-tuner-*.apk
+          files: |
+            thor-emu-tuner-*.apk
+            SHA256SUMS.txt
+          # 0.x releases are pre-releases.
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
           generate_release_notes: true
+          body: |
+            **Read before installing**
+
+            - Not yet tested on hardware: this build has not been run on an AYN Thor or any other physical device. It is built and unit-tested in CI only. Please report problems in Issues.
+            - Every bundled preset is a *Starting guess (unverified)*: the community guide sites were unreachable during research. Use the app's A/B test sessions, and share tested values with the "Tested settings" issue form.
+            - The APK is signed with a **public** test key that is committed to the repository (see README). Anyone can sign an APK with it, so install only from this Releases page and compare the checksum with `SHA256SUMS.txt`. Play Protect may warn about it.
+            - FPS is entered by hand from the emulator's overlay; Android does not let apps read another app's frame rate.
