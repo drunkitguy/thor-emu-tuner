@@ -1,0 +1,37 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android / IDE
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Signing: only the documented public keystore is committed
+*.jks
+*.keystore
+!keystore/thor-emu-tuner-public.jks
+app/release.jks
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Never commit ROMs or emulator data
+*.iso
+*.rvz
+*.wbfs
+*.cso
+*.chd
+*.nsp
+*.xci
+*.3ds
+*.cci
+*.nds
+*.gba
+*.z64

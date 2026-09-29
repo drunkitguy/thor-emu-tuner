@@ -1,0 +1,107 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run :core unit tests (no Android SDK needed)
+        run: ./gradlew :core:test --no-daemon -Pthor.skipAndroid=true
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-reports
+          path: core/build/reports/tests/
+
+  privacy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check tracked files and commit metadata for personal data
+        run: bash scripts/check-no-pii.sh
+
+  apk:
+    needs: [core-tests, privacy-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compute version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            NAME="0.0.0-dev+$(git rev-parse --short HEAD)"
+          fi
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+      - name: Decode private signing key (optional)
+        env:
+          SIGNING_KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+        run: |
+          if [ -n "${SIGNING_KEYSTORE_B64}" ]; then
+            echo "${SIGNING_KEYSTORE_B64}" | base64 -d > app/release.jks
+            echo "Using private signing key from secrets."
+          else
+            echo "No SIGNING_KEYSTORE_B64 secret: using the committed PUBLIC test keystore."
+          fi
+      - name: Build release APK
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          # Empty secrets must not look "set" to the Gradle script.
+          [ -z "${SIGNING_STORE_PASSWORD}" ] && unset SIGNING_STORE_PASSWORD
+          ./gradlew :app:assembleRelease --no-daemon \
+            -PversionName="${{ steps.version.outputs.name }}" \
+            -PversionCode="${{ steps.version.outputs.code }}"
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/thor-emu-tuner-${{ steps.version.outputs.name }}.apk"
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: dist/thor-emu-tuner-*.apk
+          if-no-files-found: error
+
+  release:
+    needs: apk
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: thor-emu-tuner-*.apk
+          generate_release_notes: true

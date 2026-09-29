@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Test sessions: a user-started foreground service samples battery power and thermal status. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Deliberately NOT requested: INTERNET, storage permissions, all-files access, all-packages
+         visibility. ROM and config folders are accessed only through the Storage Access Framework. -->
+
+    <!-- Package visibility (Android 11+): one entry per emulator package in the preset JSONs.
+         A :core unit test checks that every preset package is listed here. -->
+    <queries>
+        <package android:name="org.dolphinemu.dolphinemu" />
+        <package android:name="org.ppsspp.ppsspp" />
+        <package android:name="org.ppsspp.ppssppgold" />
+        <package android:name="dev.eden.eden_emulator" />
+        <package android:name="dev.legacy.eden_emulator" />
+        <package android:name="dev.eden.eden_emulator.nightly" />
+        <package android:name="org.azahar_emu.azahar" />
+        <package android:name="io.github.lime3ds.android" />
+        <package android:name="com.retroarch.aarch64" />
+        <package android:name="com.retroarch" />
+        <package android:name="xyz.aethersx2.android" />
+        <package android:name="xyz.aethersx2.tturnip" />
+        <package android:name="come.nanodata.armsx2" />
+        <package android:name="com.armsx2" />
+        <package android:name="com.armsx2.nightly" />
+        <package android:name="com.github.stenzek.duckstation" />
+        <package android:name="me.magnum.melondualds" />
+        <package android:name="me.magnum.melonds" />
+        <package android:name="org.vita3k.emulator" />
+        <package android:name="org.vita3k.emulator.ikhoeyZX" />
+        <package android:name="com.winlator.cmod" />
+        <package android:name="com.winlator.vanilla" />
+        <package android:name="com.flycast.emulator" />
+        <package android:name="org.mupen64plusae.v3.fzurita.pro" />
+        <package android:name="org.mupen64plusae.v3.fzurita" />
+        <package android:name="org.mupen64plusae.v3.fzurita.amazon" />
+    </queries>
+
+    <application
+        android:name=".ThorApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ThorEmuTuner"
+        tools:targetApi="35">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".bench.TestSessionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Samples battery power and thermal status during a user-started emulator benchmark session" />
+        </service>
+    </application>
+</manifest>

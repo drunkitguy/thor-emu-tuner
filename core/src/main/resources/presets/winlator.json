@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "winlator",
+  "name": "Winlator (Cmod / Ludashi)",
+  "systems": ["windows"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "com.winlator.cmod", "activity": "com.winlator.cmod.XServerDisplayActivity", "label": "Winlator Cmod", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "com.winlator.vanilla", "activity": "com.winlator.cmod.XServerDisplayActivity", "label": "Winlator (vanilla-id Cmod build)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "{packageActivity}",
+    "action": null,
+    "categories": [],
+    "data": null,
+    "mimeType": null,
+    "extras": [ { "name": "shortcut_path", "type": "string", "value": "{romPath}" } ],
+    "flags": ["NEW_TASK", "CLEAR_TASK", "CLEAR_TOP"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_WINLATOR-CMOD% %ACTIVITY_CLEAR_TASK% %ACTIVITY_CLEAR_TOP% %EXTRA_shortcut_path%=%ROM%. The 'ROM' is a .desktop shortcut exported from Winlator with 'Export for Frontend' (https://gitlab.com/es-de/emulationstation-de/-/raw/master/ANDROID-DEV.md). Mainline Winlator has no frontend support."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": null,
+    "gameIdKind": "fileName",
+    "iniStyle": null,
+    "source": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md",
+    "notes": "Reference only: container/shortcut settings live inside Winlator. Tips are from the upstream README."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-troubleshooting",
+      "name": "Winlator troubleshooting checklist (manual)",
+      "evidence": "inferred",
+      "description": "Upstream tips to try in order when a game is unstable.",
+      "values": [
+        { "section": "Container Settings > Advanced", "key": "Box64 preset", "value": "Stability", "uiPath": "Container Settings > Advanced > Box64 preset", "uiValue": "Stability", "description": "More stable, slower dynarec. Also for Unity games.",
+          "source": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md",
+          "keySource": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md" },
+        { "section": "Container Settings > Environment Variables", "key": "MESA_EXTENSION_MAX_YEAR", "value": "2003", "uiPath": "Container Settings > Environment Variables", "uiValue": "MESA_EXTENSION_MAX_YEAR=2003", "description": "Helps some older games start.",
+          "source": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md",
+          "keySource": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md" },
+        { "section": "Shortcut settings", "key": "Exec arguments", "value": "-force-gfx-direct", "uiPath": "Shortcut settings > Exec arguments", "uiValue": "-force-gfx-direct", "description": "Unity-engine stability workaround.",
+          "source": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md",
+          "keySource": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md" },
+        { "section": "Audio", "key": "ALSA/PulseAudio average latency", "value": "90", "uiPath": "Audio driver settings", "uiValue": "90 ms", "description": "Raise latency to fix crackling (README cites 90 ms for Unreal Gold).",
+          "source": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md",
+          "keySource": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md" },
+        { "section": "Shortcut settings", "key": "Force Fullscreen", "value": "true", "uiPath": "Shortcut settings > Force Fullscreen", "uiValue": "On", "description": "Displays low-resolution games correctly.",
+          "source": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md",
+          "keySource": "https://raw.githubusercontent.com/brunodev85/winlator/main/README.md" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [ "GameNative (app.gamenative) is another PC option with its own Steam integration; launch via action app.gamenative.LAUNCH_GAME with extras game_source and integer app_id (https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml). Not in v1." ]
+}

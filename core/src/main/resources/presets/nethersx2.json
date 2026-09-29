@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "nethersx2",
+  "name": "NetherSX2 (AetherSX2 fork)",
+  "systems": ["ps2"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "xyz.aethersx2.android", "label": "NetherSX2 / AetherSX2", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "xyz.aethersx2.tturnip", "label": "NetherSX2-Turnip", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "xyz.aethersx2.android.EmulationActivity",
+    "action": "android.intent.action.MAIN",
+    "categories": [],
+    "data": null,
+    "mimeType": null,
+    "extras": [ { "name": "bootPath", "type": "string", "value": "{romUri}" } ],
+    "flags": ["NEW_TASK", "CLEAR_TASK", "CLEAR_TOP", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_NETHERSX2% %ACTIVITY_CLEAR_TASK% %ACTIVITY_CLEAR_TOP% %ACTION%=android.intent.action.MAIN %EXTRA_bootPath%=%ROMSAF%. The emulator needs its own folder access to the PS2 games folder (ES-DE ANDROID-DEV.md)."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": "gamesettings/{serial}_{crc}.ini",
+    "gameIdKind": "ps2Serial",
+    "iniStyle": { "keyValueSeparator": " = ", "boolTrue": "true", "boolFalse": "false" },
+    "source": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/VMManager.cpp",
+    "notes": "Reference only in v1. NetherSX2 is a binary patch of the closed-source AetherSX2 (https://raw.githubusercontent.com/Trixarian/NetherSX2-patch/main/README.md); its data lives in Android/data (not SAF-grantable) and its setting enums follow an older PCSX2 snapshot, so indices from current PCSX2 (e.g. GSHardwareDownloadMode) may not match. Upstream PCSX2 names per-game files gamesettings/<SERIAL>_<ELF CRC as %08X>.ini, where the CRC is the XOR of all 32-bit words of the boot ELF (ElfObject::GetCRC in https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Elfheader.cpp). The app shows these values as a manual checklist (uiPath/uiValue)."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced (manual)",
+      "evidence": "sd8g2-general",
+      "description": "Vulkan, 3x native, readbacks disabled. Apply in NetherSX2 > Game Properties (per game) or Settings (global).",
+      "values": [
+        { "section": "EmuCore/GS", "key": "Renderer", "value": "Vulkan", "uiPath": "Settings > Graphics > GPU Renderer", "uiValue": "Vulkan", "description": "Vulkan renderer.",
+          "source": "https://raw.githubusercontent.com/Trixarian/NetherSX2-patch/main/README.md", "reason": "README FAQ: further optimize by using the Vulkan GPU renderer.",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Pcsx2Config.cpp" },
+        { "section": "EmuCore/GS", "key": "HWDownloadMode", "value": "Disable Readbacks", "uiPath": "Settings > Graphics > Hardware Download Mode", "uiValue": "Disable Readbacks", "description": "Skip GPU-to-CPU readbacks (faster; rare glitches).",
+          "source": "https://raw.githubusercontent.com/Trixarian/NetherSX2-patch/main/README.md", "reason": "README FAQ: set Hardware Download Mode to Disable Readbacks. Numeric index intentionally not given (fork enum may differ from upstream).",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Config.h" },
+        { "section": "EmuCore/GS", "key": "upscale_multiplier", "value": "3", "uiPath": "Settings > Graphics > Internal Resolution", "uiValue": "3x Native", "description": "3x upscale (~1080p).",
+          "source": "inferred", "reason": "Search snippets for Snapdragon 8 Gen 2 NetherSX2 guides say 3x or 4x suits high-end GPUs (nethersx2.org / gamehelptech.com; not fetchable).",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Pcsx2Config.cpp" },
+        { "section": "EmuCore/Speedhacks", "key": "EECycleRate", "value": "0", "uiPath": "Settings > Speed Hacks > EE Cycle Rate", "uiValue": "100% (default)", "description": "Keep EE cycle rate at default for stability.",
+          "source": "inferred", "reason": "Search snippet: keep EE Cycle Rate at 100% for stable gameplay; lower only for demanding games (not fetchable). 0 is the upstream default (Pcsx2Config.cpp).",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Pcsx2Config.cpp" }
+      ]
+    },
+    {
+      "id": "thor-performance",
+      "name": "Thor Performance (manual)",
+      "evidence": "sd8g2-general",
+      "description": "2x native, readbacks disabled; for heavy games.",
+      "values": [
+        { "section": "EmuCore/GS", "key": "Renderer", "value": "Vulkan", "uiPath": "Settings > Graphics > GPU Renderer", "uiValue": "Vulkan", "description": "Vulkan renderer.",
+          "source": "https://raw.githubusercontent.com/Trixarian/NetherSX2-patch/main/README.md",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Pcsx2Config.cpp" },
+        { "section": "EmuCore/GS", "key": "HWDownloadMode", "value": "Disable Readbacks", "uiPath": "Settings > Graphics > Hardware Download Mode", "uiValue": "Disable Readbacks", "description": "Skip readbacks.",
+          "source": "https://raw.githubusercontent.com/Trixarian/NetherSX2-patch/main/README.md",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Config.h" },
+        { "section": "EmuCore/GS", "key": "upscale_multiplier", "value": "2", "uiPath": "Settings > Graphics > Internal Resolution", "uiValue": "2x Native", "description": "2x upscale.",
+          "source": "inferred", "reason": "One step below Balanced.",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Pcsx2Config.cpp" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [
+    "Variant choice (README): 4248 (patched) is recommended for Adreno devices; 3668 'Classic' can be faster in some games and should use Threaded Presentation with Vulkan (https://raw.githubusercontent.com/Trixarian/NetherSX2-patch/main/README.md).",
+    "ARMSX2 (open source, actively developed) is increasingly recommended over NetherSX2 by Thor guides (search snippets); see armsx2.json."
+  ]
+}

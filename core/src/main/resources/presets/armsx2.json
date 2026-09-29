@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "armsx2",
+  "name": "ARMSX2",
+  "systems": ["ps2"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "come.nanodata.armsx2", "activity": "com.armsx2.MainActivity", "label": "ARMSX2", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "com.armsx2", "activity": "com.armsx2.MainActivity", "label": "ARMSX2", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "com.armsx2.nightly", "activity": "com.armsx2.MainActivity", "label": "ARMSX2 Nightly", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "come.nanodata.armsx2", "activity": "kr.co.iefriends.pcsx2.MainActivity", "label": "ARMSX2 (older builds)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "{packageActivity}",
+    "action": "android.intent.action.VIEW",
+    "categories": [],
+    "data": "{romUri}",
+    "mimeType": null,
+    "extras": [],
+    "flags": ["NEW_TASK", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_ARMSX2% %ACTION%=android.intent.action.VIEW %DATA%=%ROMSAF%. Try the package/activity pairs in listed order (ES-DE find-rule order); the first one that resolves wins."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": null,
+    "gameIdKind": "ps2Serial",
+    "iniStyle": null,
+    "source": null,
+    "notes": "Reference only in v1: ARMSX2 is a fast-moving PCSX2-based fork; its per-game storage path was not verified from source during planning. Presets are UI checklists."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced (manual)",
+      "evidence": "inferred",
+      "description": "Vulkan, 3x native. Same starting point as NetherSX2.",
+      "values": [
+        { "section": "EmuCore/GS", "key": "Renderer", "value": "Vulkan", "uiPath": "Settings > Graphics > Renderer", "uiValue": "Vulkan", "description": "Vulkan renderer.",
+          "source": "inferred", "reason": "PCSX2-family guidance for Adreno (NetherSX2 README recommends Vulkan); ARMSX2-specific source not reachable.",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Pcsx2Config.cpp" },
+        { "section": "EmuCore/GS", "key": "upscale_multiplier", "value": "3", "uiPath": "Settings > Graphics > Internal Resolution", "uiValue": "3x Native", "description": "3x upscale (~1080p).",
+          "source": "inferred", "reason": "Same reasoning as NetherSX2 Thor Balanced.",
+          "keySource": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/Pcsx2Config.cpp" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [
+    "Thor and Odin 2 guides (search snippets) describe ARMSX2 as newer, frequently updated and the likely best PS2 option going forward, with hardcore RetroAchievements support."
+  ]
+}

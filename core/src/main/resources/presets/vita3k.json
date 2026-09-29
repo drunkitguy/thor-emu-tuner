@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "vita3k",
+  "name": "Vita3K",
+  "systems": ["psvita"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "org.vita3k.emulator", "label": "Vita3K (official)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "org.vita3k.emulator.ikhoeyZX", "label": "Vita3K ZX fork", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "org.vita3k.emulator.Emulator",
+    "action": null,
+    "categories": [],
+    "data": null,
+    "mimeType": null,
+    "extras": [ { "name": "AppStartParameters", "type": "stringArray", "value": "-r,{titleId}" } ],
+    "flags": ["NEW_TASK"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_VITA3K% %EXTRAARRAY_AppStartParameters%=-r,%INJECT%=%BASENAME%.psvita - i.e. a string array ['-r', '<TITLE ID>']. Games must already be installed inside Vita3K; the ROM is a text file '<Game>.psvita' containing the title ID such as PCSF00007 (https://gitlab.com/es-de/emulationstation-de/-/raw/master/USERGUIDE.md)."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": null,
+    "gameIdKind": "vitaTitleId",
+    "iniStyle": null,
+    "source": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h",
+    "notes": "Reference only: Vita3K keeps config.yml (and per-app custom configs) in its app-specific storage. Keys are the YAML names from config.h."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced (manual)",
+      "evidence": "inferred",
+      "description": "Vulkan, 2x resolution (1920x1088), async pipeline compilation.",
+      "values": [
+        { "section": "config.yml", "key": "backend-renderer", "value": "Vulkan", "uiPath": "Settings > GPU > Backend renderer", "uiValue": "Vulkan", "description": "Vulkan (default).",
+          "source": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h",
+          "keySource": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h" },
+        { "section": "config.yml", "key": "resolution-multiplier", "value": "2.0", "uiPath": "Settings > GPU > Internal resolution", "uiValue": "2x", "description": "960x544 x2 = 1920x1088, matching the Thor top screen.",
+          "source": "inferred", "reason": "Integer scale that matches the 1080p panel; no reachable device-specific source.",
+          "keySource": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h" },
+        { "section": "config.yml", "key": "async-pipeline-compilation", "value": "true", "uiPath": "Settings > GPU > Asynchronous pipeline compilation", "uiValue": "On", "description": "Reduces shader stutter (default on).",
+          "source": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h",
+          "keySource": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h" },
+        { "section": "config.yml", "key": "disable-surface-sync", "value": "true", "uiPath": "Settings > GPU > Disable surface sync", "uiValue": "On", "description": "Speed option (default on).",
+          "source": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h",
+          "keySource": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h" }
+      ]
+    },
+    {
+      "id": "thor-performance",
+      "name": "Thor Performance (manual)",
+      "evidence": "inferred",
+      "description": "Native resolution for heavy titles.",
+      "values": [
+        { "section": "config.yml", "key": "resolution-multiplier", "value": "1.0", "uiPath": "Settings > GPU > Internal resolution", "uiValue": "1x", "description": "Native 960x544.",
+          "source": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h", "reason": "Emulator default.",
+          "keySource": "https://raw.githubusercontent.com/Vita3K/Vita3K/master/vita3k/config/include/config/config.h" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [ "Vita3K downloads firmware from Sony's public servers at first run (https://github.com/Desage56/ayn-thor-claude-skill/blob/main/thor-handheld/references/emulators.md)." ]
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "flycast",
+  "name": "Flycast",
+  "systems": ["dreamcast", "naomi", "atomiswave"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "com.flycast.emulator", "activity": "com.flycast.emulator.MainActivity", "label": "Flycast", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "com.flycast.emulator", "activity": "com.reicast.emulator.MainActivity", "label": "Flycast (older builds)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "{packageActivity}",
+    "action": "android.intent.action.VIEW",
+    "categories": [],
+    "data": "{romUri}",
+    "mimeType": null,
+    "extras": [],
+    "flags": ["NEW_TASK", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_FLYCAST% %ACTION%=android.intent.action.VIEW %DATA%=%ROMSAF%."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": "emu.cfg",
+    "gameIdKind": "dreamcastProductId",
+    "iniStyle": { "keyValueSeparator": " = ", "boolTrue": "yes", "boolFalse": "no" },
+    "source": "https://raw.githubusercontent.com/flyinghead/flycast/master/core/cfg/option.cpp",
+    "notes": "Reference only in v1. Options are stored in emu.cfg under section [config] as 'rend.Resolution' etc.; per-game overrides are stored in a section named after the game ID (option.h: setGameId / doLoad(gameId, section + '.' + name), https://raw.githubusercontent.com/flyinghead/flycast/master/core/cfg/option.h). Game ID detection requires reading IP.BIN from the GD-ROM data track, deferred to v2. Boolean spelling in emu.cfg was not verified (boolTrue/boolFalse are placeholders)."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced (manual)",
+      "evidence": "inferred",
+      "description": "1440p-class internal resolution (3x 480), threaded rendering, 4x AF.",
+      "values": [
+        { "section": "config", "key": "rend.Resolution", "value": "1440", "uiPath": "Settings > Video > Internal Resolution", "uiValue": "1440 (x3)", "description": "3x the native 480 lines, downsampled to 1080p.",
+          "source": "inferred", "reason": "Dreamcast rendering is light for an Adreno 740; option default is 480.",
+          "keySource": "https://raw.githubusercontent.com/flyinghead/flycast/master/core/cfg/option.cpp" },
+        { "section": "config", "key": "rend.ThreadedRendering", "value": "true", "uiPath": "Settings > Video > Multi-threaded emulation", "uiValue": "On", "description": "Threaded rendering (default on).",
+          "source": "https://raw.githubusercontent.com/flyinghead/flycast/master/core/cfg/option.cpp",
+          "keySource": "https://raw.githubusercontent.com/flyinghead/flycast/master/core/cfg/option.cpp" },
+        { "section": "config", "key": "rend.AnisotropicFiltering", "value": "4", "uiPath": "Settings > Video > Anisotropic Filtering", "uiValue": "4x", "description": "4x AF.",
+          "source": "inferred", "reason": "Low-cost enhancement; option default is 1.",
+          "keySource": "https://raw.githubusercontent.com/flyinghead/flycast/master/core/cfg/option.cpp" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [ "Dreamcast BIOS files are optional for many games but recommended." ]
+}

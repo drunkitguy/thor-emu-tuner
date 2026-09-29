@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    "dolphin.json",
+    "ppsspp.json",
+    "eden.json",
+    "azahar.json",
+    "retroarch.json",
+    "nethersx2.json",
+    "armsx2.json",
+    "duckstation.json",
+    "melonds.json",
+    "vita3k.json",
+    "winlator.json",
+    "flycast.json",
+    "mupen64plus_fz.json"
+  ]
+}

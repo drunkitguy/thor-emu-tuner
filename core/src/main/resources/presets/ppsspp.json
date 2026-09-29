@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "ppsspp",
+  "name": "PPSSPP",
+  "systems": ["psp"],
+  "supportLevel": "full",
+  "packages": [
+    { "packageName": "org.ppsspp.ppsspp", "label": "PPSSPP", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "org.ppsspp.ppssppgold", "label": "PPSSPP Gold", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "org.ppsspp.ppsspp.PpssppActivity",
+    "action": "android.intent.action.VIEW",
+    "categories": ["android.intent.category.DEFAULT"],
+    "data": "{romUri}",
+    "mimeType": null,
+    "extras": [],
+    "flags": ["NEW_TASK", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_PPSSPP% %ACTION%=android.intent.action.VIEW %CATEGORY%=android.intent.category.DEFAULT %DATA%=%ROMSAF%. The activity declares a VIEW filter for file/content schemes (https://raw.githubusercontent.com/hrydgard/ppsspp/master/android/AndroidManifest.xml). ES-DE's docs say to add the games folder inside PPSSPP with the Browse button so launches work (https://gitlab.com/es-de/emulationstation-de/-/raw/master/ANDROID-DEV.md)."
+  },
+  "configTarget": {
+    "mode": "perGameIni",
+    "folderToGrant": "The PPSSPP memory stick folder: the folder that CONTAINS the 'PSP' directory (PPSSPP > Settings > System > Memory stick folder). Must be in shared storage; if PPSSPP uses its private Android/data default it cannot be granted and the app falls back to 'export + manual copy'.",
+    "folderValidation": ["PSP/SYSTEM"],
+    "pathTemplate": "PSP/SYSTEM/{gameId}_ppsspp.ini",
+    "gameIdKind": "pspDiscId",
+    "iniStyle": { "keyValueSeparator": " = ", "boolTrue": "True", "boolFalse": "False" },
+    "source": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Util/PathUtil.cpp",
+    "notes": "GetGameConfigFilePath() joins gameId + '_ppsspp.ini' inside the config search path, which is GetSysDirectory(DIRECTORY_SYSTEM) = <memstick>/PSP/SYSTEM. NOTE: the file is <DISCID>_ppsspp.ini, NOT <DISCID>_game.ini. The game ID is PARAM.SFO DISC_ID without a dash, e.g. ULUS10041 (https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameInfoCache.cpp). Only settings flagged CfgFlag::PER_GAME are read from the game file (https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp); missing keys keep the global value (ReadFromIniSection with applyDefaultIfMissing=false, https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigSettings.cpp). GraphicsBackend is NOT per-game, so the backend is a manual global recommendation. The memstick dir is user-selectable and remembered in memstick_dir.txt (https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/NativeApp.cpp). PPSSPP rewrites the whole game ini when the user edits per-game settings in its UI; merge, do not clobber."
+  },
+  "settings": [
+    {
+      "section": "Graphics", "key": "InternalResolution", "label": "Rendering resolution", "type": "enum", "group": "Resolution", "impact": "high",
+      "options": [
+        { "value": "0", "label": "Auto (1:1 with screen)" }, { "value": "1", "label": "1x PSP (480x272)" }, { "value": "2", "label": "2x" },
+        { "value": "3", "label": "3x" }, { "value": "4", "label": "4x (~1080p)" }, { "value": "5", "label": "5x" }, { "value": "6", "label": "6x" },
+        { "value": "7", "label": "7x" }, { "value": "8", "label": "8x" }, { "value": "9", "label": "9x" }, { "value": "10", "label": "10x" }
+      ],
+      "default": null,
+      "description": "Render scale relative to the PSP's 480x272. 4x = 1920x1088, matching the Thor top screen.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp"
+    },
+    {
+      "section": "Graphics", "key": "AnisotropyLevel", "label": "Anisotropic filtering", "type": "enum", "group": "Enhancements", "impact": "low",
+      "options": [ { "value": "0", "label": "Off" }, { "value": "1", "label": "2x" }, { "value": "2", "label": "4x" }, { "value": "3", "label": "8x" }, { "value": "4", "label": "16x" } ],
+      "default": "4",
+      "description": "Sharper textures at angles.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp"
+    },
+    {
+      "section": "Graphics", "key": "TextureFiltering", "label": "Texture filter", "type": "enum", "group": "Enhancements", "impact": "low",
+      "options": [ { "value": "1", "label": "Auto" }, { "value": "2", "label": "Nearest" }, { "value": "3", "label": "Linear" }, { "value": "4", "label": "Auto max quality" } ],
+      "default": "1",
+      "description": "Texture sampling filter override.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h"
+    },
+    {
+      "section": "Graphics", "key": "MultiSampleLevel", "label": "MSAA", "type": "enum", "group": "Enhancements", "impact": "high",
+      "options": [ { "value": "0", "label": "Off" }, { "value": "1", "label": "2x" }, { "value": "2", "label": "4x" }, { "value": "3", "label": "8x" }, { "value": "4", "label": "16x" } ],
+      "default": "0",
+      "description": "Multisample anti-aliasing (samples = 1 << level). PPSSPP shows a warning for MSAA on tiling GPUs such as Adreno; prefer raising resolution instead.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp"
+    },
+    {
+      "section": "Graphics", "key": "FrameSkip", "label": "Frame skipping", "type": "int", "group": "Frame pacing", "impact": "high",
+      "min": 0, "max": 8, "step": 1, "default": "0",
+      "description": "Skip rendering this many frames. 0 = off. Only for games that cannot hold speed.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp"
+    },
+    {
+      "section": "Graphics", "key": "AutoFrameSkip", "label": "Auto frameskip", "type": "bool", "group": "Frame pacing", "impact": "medium",
+      "default": "False",
+      "description": "Skip frames automatically when running slow.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp"
+    },
+    {
+      "section": "Graphics", "key": "SkipBufferEffects", "label": "Skip buffer effects", "type": "bool", "group": "Hacks (advanced)", "impact": "high", "advanced": true,
+      "default": "False",
+      "description": "Speed hack: skips framebuffer effects. Frequently breaks graphics; per-game only.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp"
+    },
+    {
+      "section": "Graphics", "key": "SkipGPUReadbackMode", "label": "Skip GPU readbacks", "type": "enum", "group": "Hacks (advanced)", "impact": "medium", "advanced": true,
+      "options": [ { "value": "0", "label": "No" }, { "value": "1", "label": "Skip" }, { "value": "2", "label": "Copy to texture" } ],
+      "default": "0",
+      "description": "Avoids slow GPU-to-CPU copies. Can break effects in some games.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h"
+    },
+    {
+      "section": "Graphics", "key": "HardwareTransform", "label": "Hardware transform", "type": "bool", "group": "Renderer", "impact": "high",
+      "default": "True",
+      "description": "Do vertex transform on the GPU. Keep on.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp"
+    },
+    {
+      "section": "Graphics", "key": "iShowStatusFlags", "label": "On-screen counters", "type": "enum", "group": "Testing", "impact": "low",
+      "options": [ { "value": "0", "label": "None" }, { "value": "2", "label": "FPS" }, { "value": "4", "label": "Speed %" }, { "value": "6", "label": "FPS + speed" } ],
+      "default": "0",
+      "description": "Bitmask: 2 = FPS counter, 4 = speed counter, 8 = battery percent.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h"
+    },
+    {
+      "section": "CPU", "key": "CPUCore", "label": "CPU core", "type": "enum", "group": "CPU", "impact": "high",
+      "options": [ { "value": "1", "label": "Dynarec (JIT)" }, { "value": "3", "label": "JIT using IR" }, { "value": "2", "label": "IR interpreter" }, { "value": "0", "label": "Interpreter" } ],
+      "default": "1",
+      "description": "CPU emulation method. JIT is fastest on ARM64.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h"
+    },
+    {
+      "section": "CPU", "key": "IOTimingMethod", "label": "I/O timing", "type": "enum", "group": "CPU", "impact": "low",
+      "options": [ { "value": "0", "label": "Fast (default)" }, { "value": "1", "label": "Host" }, { "value": "2", "label": "Simulate UMD delays" }, { "value": "3", "label": "Simulate UMD slow reading speed" } ],
+      "default": "0",
+      "description": "Disc access timing. Some games need realistic timing to avoid hangs.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h"
+    }
+  ],
+  "globalRecommendations": [
+    { "section": "Graphics", "key": "GraphicsBackend", "value": "3", "description": "Vulkan backend (enum GPUBackend::VULKAN = 3). Not a per-game setting in PPSSPP: set once in PPSSPP > Settings > Graphics.",
+      "source": "inferred", "reason": "Community guides for Snapdragon 8-series recommend Vulkan (search snippets only). Enum value from ConfigValues.h; CfgFlag::DEFAULT (not PER_GAME) in Config.cpp.",
+      "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h" }
+  ],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced",
+      "evidence": "odin2",
+      "description": "4x resolution (1080p class), 16x AF, JIT, FPS counter on.",
+      "values": [
+        { "section": "Graphics", "key": "InternalResolution", "value": "4", "description": "4x PSP resolution, about 1080p.",
+          "source": "inferred", "reason": "Community Odin 2 guidance (retrogamecorps.com Odin starter guide, search snippet only) recommends 4x (1080p); matches the Thor 1080p top screen.",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp" },
+        { "section": "Graphics", "key": "AnisotropyLevel", "value": "4", "description": "16x AF (PPSSPP default).",
+          "source": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp" },
+        { "section": "CPU", "key": "CPUCore", "value": "1", "description": "Dynarec (JIT), the default on ARM64 when JIT is allowed.",
+          "source": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h" },
+        { "section": "Graphics", "key": "iShowStatusFlags", "value": "2", "description": "Show FPS counter for test sessions.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h" }
+      ]
+    },
+    {
+      "id": "thor-performance",
+      "name": "Thor Performance",
+      "evidence": "inferred",
+      "description": "2x resolution and skipped GPU readbacks for heavy games or longer battery life.",
+      "values": [
+        { "section": "Graphics", "key": "InternalResolution", "value": "2", "description": "2x PSP resolution.",
+          "source": "inferred", "reason": "Lower render cost than the 4x baseline.",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp" },
+        { "section": "Graphics", "key": "SkipGPUReadbackMode", "value": "1", "description": "Skip GPU readbacks (speed hack, can break some effects).",
+          "source": "inferred", "reason": "Known PPSSPP speed option; value semantics from ConfigValues.h (1 = SKIP). Verify per game.",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h" },
+        { "section": "CPU", "key": "CPUCore", "value": "1", "description": "Dynarec (JIT).",
+          "source": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h" },
+        { "section": "Graphics", "key": "iShowStatusFlags", "value": "2", "description": "Show FPS counter.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h" }
+      ]
+    },
+    {
+      "id": "thor-quality",
+      "name": "Thor Quality",
+      "evidence": "odin2",
+      "description": "6x resolution supersampled onto the 1080p screen. MSAA left off (PPSSPP warns about MSAA on tiling GPUs).",
+      "values": [
+        { "section": "Graphics", "key": "InternalResolution", "value": "6", "description": "6x PSP resolution (supersampling).",
+          "source": "inferred", "reason": "A community Odin 2 test (retroresolve.com, search snippet only) reports God of War: Ghost of Sparta holding 60 FPS even at 10x; 6x leaves margin for heavier games.",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp" },
+        { "section": "Graphics", "key": "AnisotropyLevel", "value": "4", "description": "16x AF.",
+          "source": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/Config.cpp",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp" },
+        { "section": "Graphics", "key": "MultiSampleLevel", "value": "0", "description": "MSAA off.",
+          "source": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp", "reason": "PPSSPP flags MSAA levels > 1 with a warning icon when isTilingGPU (Adreno is a tiling GPU).",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/UI/GameSettingsScreen.cpp" },
+        { "section": "Graphics", "key": "iShowStatusFlags", "value": "2", "description": "Show FPS counter.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/hrydgard/ppsspp/master/Core/ConfigValues.h" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [
+    "Game-specific compatibility hacks are applied by PPSSPP's bundled compat.ini independently of these config files, so presets do not need to replicate them (https://raw.githubusercontent.com/hrydgard/ppsspp/master/assets/compat.ini)."
+  ]
+}

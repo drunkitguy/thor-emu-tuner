@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "duckstation",
+  "name": "DuckStation",
+  "systems": ["psx"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "com.github.stenzek.duckstation", "label": "DuckStation (Play Store)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "com.github.stenzek.duckstation.EmulationActivity",
+    "action": null,
+    "categories": [],
+    "data": null,
+    "mimeType": null,
+    "extras": [
+      { "name": "resumeState", "type": "bool", "value": "false" },
+      { "name": "bootPath", "type": "string", "value": "{romUri}" }
+    ],
+    "flags": ["NEW_TASK", "CLEAR_TASK", "CLEAR_TOP", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_DUCKSTATION% %ACTIVITY_CLEAR_TASK% %ACTIVITY_CLEAR_TOP% %EXTRABOOL_resumeState%=false %EXTRA_bootPath%=%ROMSAF%."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": "gamesettings/{serial}.ini",
+    "gameIdKind": "psxSerial",
+    "iniStyle": { "keyValueSeparator": " = ", "boolTrue": "true", "boolFalse": "false" },
+    "source": "https://raw.githubusercontent.com/stenzek/duckstation/master/src/core/system.cpp",
+    "notes": "Reference only in v1: the Android app is distributed via the Play Store and keeps its data in app-specific storage. Upstream core names per-game files gamesettings/<SERIAL>.ini (first disc's serial for multi-disc sets; System::GetGameSettingsPath). Keys below are upstream core keys (https://raw.githubusercontent.com/stenzek/duckstation/master/src/core/settings.cpp) and are shown as a manual checklist."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced (manual)",
+      "evidence": "inferred",
+      "description": "Vulkan, 4x resolution, PGXP geometry correction.",
+      "values": [
+        { "section": "GPU", "key": "Renderer", "value": "Vulkan", "uiPath": "Settings > Graphics > Renderer", "uiValue": "Vulkan", "description": "Hardware Vulkan renderer.",
+          "source": "inferred", "reason": "Hardware renderer needed for upscaling; Vulkan preferred on Adreno. Name from s_gpu_renderer_names in settings.cpp.",
+          "keySource": "https://raw.githubusercontent.com/stenzek/duckstation/master/src/core/settings.cpp" },
+        { "section": "GPU", "key": "ResolutionScale", "value": "4", "uiPath": "Settings > Graphics > Internal Resolution", "uiValue": "4x", "description": "4x native (240p -> 960p).",
+          "source": "inferred", "reason": "Largest integer scale of 240-line content under the Thor's 1080 lines.",
+          "keySource": "https://raw.githubusercontent.com/stenzek/duckstation/master/src/core/settings.cpp" },
+        { "section": "GPU", "key": "PGXPEnable", "value": "true", "uiPath": "Settings > Enhancements > PGXP Geometry Correction", "uiValue": "On", "description": "Reduces PS1 polygon wobble.",
+          "source": "inferred", "reason": "Common enhancement with a small CPU cost on a flagship SoC.",
+          "keySource": "https://raw.githubusercontent.com/stenzek/duckstation/master/src/core/settings.cpp" },
+        { "section": "Display", "key": "ShowFPS", "value": "true", "uiPath": "Settings > On-Screen Display > Show FPS", "uiValue": "On", "description": "FPS overlay for test sessions.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/stenzek/duckstation/master/src/core/settings.cpp" }
+      ]
+    },
+    {
+      "id": "thor-low-latency",
+      "name": "Thor Low Latency (manual)",
+      "evidence": "inferred",
+      "description": "Balanced plus 1 frame of run-ahead.",
+      "values": [
+        { "section": "Main", "key": "RunaheadFrameCount", "value": "1", "uiPath": "Settings > Latency > Runahead", "uiValue": "1 frame", "description": "Run-ahead 1 frame.",
+          "source": "inferred", "reason": "DuckStation supports run-ahead natively; 1 frame is the conservative value.",
+          "keySource": "https://raw.githubusercontent.com/stenzek/duckstation/master/src/core/settings.cpp" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [ "DuckStation needs a user-supplied PS1 BIOS." ]
+}

@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "dolphin",
+  "name": "Dolphin",
+  "systems": ["gc", "wii"],
+  "supportLevel": "full",
+  "packages": [
+    {
+      "packageName": "org.dolphinemu.dolphinemu",
+      "label": "Dolphin (official, Play Store / dolphin-emu.org)",
+      "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml"
+    }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "org.dolphinemu.dolphinemu.ui.main.TvMainActivity",
+    "action": "android.intent.action.MAIN",
+    "categories": ["android.intent.category.LEANBACK_LAUNCHER"],
+    "data": "{romUri}",
+    "mimeType": null,
+    "extras": [
+      { "name": "AutoStartFile", "type": "string", "value": "{romUri}" }
+    ],
+    "flags": ["NEW_TASK", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE command: %EMULATOR_DOLPHIN% %ACTION%=android.intent.action.MAIN %CATEGORY%=android.intent.category.LEANBACK_LAUNCHER %EXTRA_AutoStartFile%=%ROMSAF%. Dolphin's StartupHandler.kt reads intent.clipData, then intent.data (content URI, preferred), then extras AutoStartFiles / AutoStartFile (see https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/utils/StartupHandler.kt). Setting both data and AutoStartFile is safe."
+  },
+  "configTarget": {
+    "mode": "perGameIni",
+    "folderToGrant": "Dolphin user folder. In the system folder picker open the side menu and choose the 'Dolphin' entry (Dolphin's own DocumentsProvider, authority org.dolphinemu.dolphinemu.user). Legacy installs may instead use /storage/emulated/0/dolphin-emu.",
+    "folderValidation": ["Config"],
+    "pathTemplate": "GameSettings/{gameId}.ini",
+    "gameIdKind": "gcWiiGameId",
+    "iniStyle": { "keyValueSeparator": " = ", "boolTrue": "True", "boolFalse": "False" },
+    "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/ConfigLoaders/GameConfigLoader.cpp",
+    "notes": "User game INIs are loaded from File::GetUserPath(D_GAMESETTINGS_IDX) = <user>/GameSettings (GAMESETTINGS_DIR in https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Common/CommonPaths.h). Filenames tried: <first char>.ini, <first 3 chars>.ini, <6-char ID>.ini, <ID>r<revision>.ini; the app writes <6-char ID>.ini. Legacy section names map: Core->Main.Core, Video_Settings->GFX.Settings, Video_Enhancements->GFX.Enhancements, Video_Hacks->GFX.Hacks, Video_Hardware->GFX.Hardware. The user dir is getExternalFilesDir(null) (Android/data, not SAF-pickable) but is exposed by DocumentProvider.kt with FLAG_SUPPORTS_IS_CHILD, so it is pickable via ACTION_OPEN_DOCUMENT_TREE (https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/DocumentProvider.kt, https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/utils/DirectoryInitialization.kt). MERGE into an existing file; never delete keys the app does not manage. Dolphin also ships read-only Sys/GameSettings with REQUIRED per-game hacks (e.g. GMS.ini sets EFBToTextureEnable = False); user INI values override them, so the app must not write Video_Hacks keys from generic presets."
+  },
+  "settings": [
+    {
+      "section": "Core", "key": "GFXBackend", "label": "Graphics backend", "type": "enum", "group": "Renderer", "impact": "medium",
+      "options": [ { "value": "Vulkan", "label": "Vulkan" }, { "value": "OGL", "label": "OpenGL ES" } ],
+      "default": null,
+      "description": "Which GPU API Dolphin renders with. Vulkan is usually faster on Adreno; OpenGL is a fallback when a game shows glitches.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/MainSettings.cpp"
+    },
+    {
+      "section": "Core", "key": "CPUCore", "label": "CPU emulation engine", "type": "enum", "group": "CPU", "impact": "high",
+      "options": [ { "value": "4", "label": "JIT ARM64 (fast, default)" }, { "value": "5", "label": "Cached interpreter (slow)" }, { "value": "0", "label": "Interpreter (very slow, debugging)" } ],
+      "default": "4",
+      "description": "How the GameCube/Wii CPU is emulated. Leave on JIT ARM64 unless debugging.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/PowerPC/PowerPC.h"
+    },
+    {
+      "section": "Core", "key": "CPUThread", "label": "Dual core (CPU thread)", "type": "bool", "group": "CPU", "impact": "high",
+      "default": null,
+      "description": "Runs the emulated CPU and GPU on separate host threads. Big speed-up; a few games are unstable with it.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/MainSettings.cpp"
+    },
+    {
+      "section": "Core", "key": "OverclockEnable", "label": "Enable CPU clock override", "type": "bool", "group": "CPU", "impact": "high",
+      "default": "False",
+      "description": "Enables the emulated CPU clock override below. Can smooth games with internal slowdown; costs host CPU time.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/MainSettings.cpp"
+    },
+    {
+      "section": "Core", "key": "Overclock", "label": "CPU clock multiplier", "type": "float", "group": "CPU", "impact": "high",
+      "min": null, "max": null, "step": 0.05, "default": "1.0",
+      "description": "Emulated CPU clock multiplier (1.0 = console speed). Below 1.0 can help weak devices but may break games. Range not verified from source: the UI must only accept values > 0 and warn outside 0.5-2.0.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/MainSettings.cpp"
+    },
+    {
+      "section": "Core", "key": "SyncOnSkipIdle", "label": "Synchronize GPU thread on idle skip", "type": "bool", "group": "CPU", "impact": "low",
+      "default": "True",
+      "description": "Keeps CPU and GPU threads in step when the game idles. Disabling can be faster but less stable.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/MainSettings.cpp"
+    },
+    {
+      "section": "Video_Settings", "key": "InternalResolution", "label": "Internal resolution", "type": "enum", "group": "Resolution", "impact": "high",
+      "options": [
+        { "value": "1", "label": "1x Native (640x528)" },
+        { "value": "2", "label": "2x (720p class)" },
+        { "value": "3", "label": "3x (1080p class)" },
+        { "value": "4", "label": "4x (1440p class)" },
+        { "value": "5", "label": "5x" },
+        { "value": "6", "label": "6x (4K class)" }
+      ],
+      "default": "1",
+      "description": "Rendering scale (EFB scale). Biggest single quality/performance knob. The Thor top screen is 1920x1080, so 3x is the natural target.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    },
+    {
+      "section": "Video_Settings", "key": "ShaderCompilationMode", "label": "Shader compilation", "type": "enum", "group": "Shaders", "impact": "medium",
+      "options": [
+        { "value": "0", "label": "Synchronous (stutters on new effects)" },
+        { "value": "1", "label": "Synchronous ubershaders (smooth, heavy GPU)" },
+        { "value": "2", "label": "Asynchronous ubershaders (balanced)" },
+        { "value": "3", "label": "Asynchronous skip drawing (fastest, objects may pop in)" }
+      ],
+      "default": "0",
+      "description": "How new shaders are compiled. Ubershader modes avoid the classic first-time stutter at a GPU cost.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h"
+    },
+    {
+      "section": "Video_Settings", "key": "WaitForShadersBeforeStarting", "label": "Compile shaders before starting", "type": "bool", "group": "Shaders", "impact": "low",
+      "default": "False",
+      "description": "Precompiles the shader cache before the game boots: longer start, fewer hitches.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    },
+    {
+      "section": "Video_Settings", "key": "AspectRatio", "label": "Aspect ratio", "type": "enum", "group": "Display", "impact": "low",
+      "options": [ { "value": "0", "label": "Auto" }, { "value": "1", "label": "Force 16:9" }, { "value": "2", "label": "Force 4:3" }, { "value": "3", "label": "Stretch to window" } ],
+      "default": "0",
+      "description": "Output aspect ratio.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h"
+    },
+    {
+      "section": "Video_Settings", "key": "ShowFPS", "label": "Show FPS overlay", "type": "bool", "group": "Testing", "impact": "low",
+      "default": "False",
+      "description": "Shows Dolphin's FPS counter so you can read the average FPS during a test session.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    },
+    {
+      "section": "Video_Settings", "key": "DriverLibName", "label": "Custom GPU driver file", "type": "string", "group": "Renderer", "impact": "medium",
+      "default": "",
+      "description": "File name of a custom Vulkan driver (e.g. a Turnip build) installed through Dolphin's GPU driver manager. Empty = system driver.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    },
+    {
+      "section": "Video_Enhancements", "key": "MaxAnisotropy", "label": "Anisotropic filtering", "type": "enum", "group": "Enhancements", "impact": "low",
+      "options": [ { "value": "-1", "label": "Game default" }, { "value": "0", "label": "1x" }, { "value": "1", "label": "2x" }, { "value": "2", "label": "4x" }, { "value": "3", "label": "8x" }, { "value": "4", "label": "16x" } ],
+      "default": "-1",
+      "description": "Sharper textures at oblique angles. Cheap on Adreno 740.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h"
+    },
+    {
+      "section": "Video_Hardware", "key": "VSync", "label": "VSync", "type": "bool", "group": "Frame pacing", "impact": "low",
+      "default": "False",
+      "description": "Synchronises presentation with the display refresh. Can reduce tearing, adds latency.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    },
+    {
+      "section": "Video_Hacks", "key": "EFBToTextureEnable", "label": "Store EFB copies to texture only", "type": "bool", "group": "Hacks (advanced)", "impact": "medium",
+      "default": "True", "advanced": true,
+      "description": "Faster, but some games REQUIRE this off (Dolphin's own game INIs set it). Only change per game with a reason.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    },
+    {
+      "section": "Video_Hacks", "key": "EFBAccessEnable", "label": "Allow CPU access to EFB", "type": "bool", "group": "Hacks (advanced)", "impact": "medium",
+      "default": "False", "advanced": true,
+      "description": "Some games need CPU reads of the framebuffer (e.g. for lens flares or cursors). Costs performance.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    },
+    {
+      "section": "Video_Hacks", "key": "VISkip", "label": "VBI skip", "type": "bool", "group": "Hacks (advanced)", "impact": "medium",
+      "default": "False", "advanced": true,
+      "description": "Skips vertical blank interrupts when behind; smoother on slow devices, can cause issues in some games.",
+      "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp"
+    }
+  ],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced",
+      "evidence": "odin2",
+      "description": "Vulkan, 3x internal resolution (matches the 1080p top screen), asynchronous ubershaders. Starting point for most GC/Wii games on Snapdragon 8 Gen 2.",
+      "values": [
+        { "section": "Core", "key": "GFXBackend", "value": "Vulkan", "description": "Render with Vulkan.",
+          "source": "inferred", "reason": "Community Odin 2 (same SoC) guides report switching from OpenGL to Vulkan improves performance in some games (retrogamecorps.com Odin 2 starter guide, seen only as a search-result snippet; site blocked from the research sandbox).",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoBackends/Vulkan/VideoBackend.h" },
+        { "section": "Video_Settings", "key": "InternalResolution", "value": "3", "description": "3x native, about 1080p.",
+          "source": "inferred", "reason": "Community Odin 2 guidance says the vast majority of GC/Wii games play at 3x on Snapdragon 8 Gen 2 (search-result snippet of the retrogamecorps.com Odin 2 guide; not fetchable). 3x also matches the Thor's 1080p top panel.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" },
+        { "section": "Video_Settings", "key": "ShaderCompilationMode", "value": "2", "description": "Asynchronous ubershaders: hides shader-compile stutter.",
+          "source": "inferred", "reason": "Value semantics from VideoConfig.h (2 = AsynchronousUberShaders). Chosen as the stutter/performance middle ground; no Thor-specific source reachable.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h" },
+        { "section": "Video_Enhancements", "key": "MaxAnisotropy", "value": "2", "description": "4x anisotropic filtering.",
+          "source": "inferred", "reason": "Low-cost enhancement on a flagship GPU; no device-specific source reachable.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h" },
+        { "section": "Video_Settings", "key": "ShowFPS", "value": "True", "description": "FPS overlay on, so test sessions can record FPS.",
+          "source": "inferred", "reason": "Required by this app's test procedure (user reads FPS from the emulator overlay).",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" }
+      ]
+    },
+    {
+      "id": "thor-performance",
+      "name": "Thor Performance",
+      "evidence": "inferred",
+      "description": "For demanding Wii titles or to save battery: 2x resolution and skip-drawing async shaders.",
+      "values": [
+        { "section": "Core", "key": "GFXBackend", "value": "Vulkan", "description": "Render with Vulkan.",
+          "source": "inferred", "reason": "Same as Thor Balanced.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoBackends/Vulkan/VideoBackend.h" },
+        { "section": "Video_Settings", "key": "InternalResolution", "value": "2", "description": "2x native (720p class): roughly half the pixel work of 3x.",
+          "source": "inferred", "reason": "One step below the 3x community baseline to trade sharpness for headroom.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" },
+        { "section": "Video_Settings", "key": "ShaderCompilationMode", "value": "3", "description": "Asynchronous, skip drawing: fastest; objects can briefly pop in.",
+          "source": "inferred", "reason": "Value semantics from VideoConfig.h (3 = AsynchronousSkipRendering); lowest GPU cost option.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h" },
+        { "section": "Video_Enhancements", "key": "MaxAnisotropy", "value": "-1", "description": "Game-default texture filtering.",
+          "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h" },
+        { "section": "Video_Settings", "key": "ShowFPS", "value": "True", "description": "FPS overlay on for testing.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" }
+      ]
+    },
+    {
+      "id": "thor-quality",
+      "name": "Thor Quality",
+      "evidence": "inferred",
+      "description": "For light GameCube titles: 4x resolution (supersampled onto the 1080p screen), synchronous ubershaders, 16x AF.",
+      "values": [
+        { "section": "Core", "key": "GFXBackend", "value": "Vulkan", "description": "Render with Vulkan.",
+          "source": "inferred", "reason": "Same as Thor Balanced.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoBackends/Vulkan/VideoBackend.h" },
+        { "section": "Video_Settings", "key": "InternalResolution", "value": "4", "description": "4x native (1440p class), downsampled to the 1080p panel.",
+          "source": "inferred", "reason": "One step above the 3x community baseline; for games with headroom. Verify with a test session.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" },
+        { "section": "Video_Settings", "key": "ShaderCompilationMode", "value": "1", "description": "Synchronous ubershaders: no pop-in, no compile stutter, highest GPU cost.",
+          "source": "inferred", "reason": "Value semantics from VideoConfig.h (1 = SynchronousUberShaders).",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h" },
+        { "section": "Video_Enhancements", "key": "MaxAnisotropy", "value": "4", "description": "16x anisotropic filtering.",
+          "source": "inferred", "reason": "Quality preset; low cost on Adreno 740.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h" },
+        { "section": "Video_Settings", "key": "ShowFPS", "value": "True", "description": "FPS overlay on for testing.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" }
+      ]
+    },
+    {
+      "id": "thor-compat-gl",
+      "name": "Thor Compatibility (OpenGL)",
+      "evidence": "inferred",
+      "description": "Fallback when a game glitches or crashes on Vulkan: OpenGL ES at 3x with synchronous ubershaders.",
+      "values": [
+        { "section": "Core", "key": "GFXBackend", "value": "OGL", "description": "Render with OpenGL ES.",
+          "source": "inferred", "reason": "Standard troubleshooting step: switch backend when one misbehaves. Config name 'OGL' from the OGL backend header.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoBackends/OGL/VideoBackend.h" },
+        { "section": "Video_Settings", "key": "InternalResolution", "value": "3", "description": "3x native.",
+          "source": "inferred", "reason": "Community 3x baseline (see Thor Balanced).",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" },
+        { "section": "Video_Settings", "key": "ShaderCompilationMode", "value": "1", "description": "Synchronous ubershaders.",
+          "source": "inferred", "reason": "Avoids async paths while isolating a backend problem.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoCommon/VideoConfig.h" },
+        { "section": "Video_Settings", "key": "ShowFPS", "value": "True", "description": "FPS overlay on for testing.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/Core/Config/GraphicsSettings.cpp" }
+      ]
+    }
+  ],
+  "gameSpecific": [
+    {
+      "gameIdPrefix": "GMS", "title": "Super Mario Sunshine", "appliedBy": "emulator",
+      "note": "Dolphin already applies these from Sys/GameSettings. Shown read-only so users do not override them by accident.",
+      "values": [
+        { "section": "Video_Hacks", "key": "EFBToTextureEnable", "value": "False", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/GMS.ini" },
+        { "section": "Video_Hacks", "key": "EFBAccessEnable", "value": "True", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/GMS.ini" }
+      ]
+    },
+    {
+      "gameIdPrefix": "GZL", "title": "The Legend of Zelda: The Wind Waker", "appliedBy": "emulator",
+      "note": "Dolphin already applies these from Sys/GameSettings.",
+      "values": [
+        { "section": "Video_Hacks", "key": "EFBAccessEnable", "value": "True", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/GZL.ini" },
+        { "section": "Video_Hacks", "key": "EFBToTextureEnable", "value": "False", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/GZL.ini" },
+        { "section": "Video_Hacks", "key": "VISkip", "value": "False", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/GZL.ini" }
+      ]
+    },
+    {
+      "gameIdPrefix": "RMG", "title": "Super Mario Galaxy", "appliedBy": "emulator",
+      "note": "Dolphin already applies these from Sys/GameSettings.",
+      "values": [
+        { "section": "Video_Hacks", "key": "EFBAccessEnable", "value": "True", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/RMG.ini" },
+        { "section": "Video_Hacks", "key": "EFBAccessDeferInvalidation", "value": "True", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/RMG.ini" }
+      ]
+    },
+    {
+      "gameIdPrefix": "GZ2", "title": "The Legend of Zelda: Twilight Princess (GC)", "appliedBy": "emulator",
+      "note": "Dolphin already applies these from Sys/GameSettings.",
+      "values": [
+        { "section": "Video_Hacks", "key": "VISkip", "value": "False", "description": "Required by the game.", "source": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Data/Sys/GameSettings/GZ2.ini" }
+      ]
+    }
+  ],
+  "manualNotes": [
+    "Custom GPU drivers: Dolphin has a GPU driver manager; a community snippet for the Thor reports custom drivers give no clear benefit over the stock Adreno driver, so presets leave DriverLibName empty (search snippet, joeysretrohandhelds.com, not fetchable)."
+  ]
+}

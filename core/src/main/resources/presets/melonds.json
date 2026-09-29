@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "melonds",
+  "name": "melonDS (Android) / MelonDualDS",
+  "systems": ["nds"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "me.magnum.melondualds", "label": "MelonDualDS (dual-screen fork, recommended on Thor)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "me.magnum.melonds", "label": "melonDS Android", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "me.magnum.melonds.ui.emulator.EmulatorActivity",
+    "action": "me.magnum.melonds.LAUNCH_ROM",
+    "categories": [],
+    "data": null,
+    "mimeType": null,
+    "extras": [ { "name": "uri", "type": "string", "value": "{romUri}" } ],
+    "flags": ["NEW_TASK", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_MELONDS% %ACTION%=me.magnum.melonds.LAUNCH_ROM %EXTRA_uri%=%ROMSAF%. Upstream manifest declares the action as ${applicationId}.LAUNCH_ROM and EmulatorActivity reads extra KEY_URI = 'uri' (https://raw.githubusercontent.com/rafaelvcaetano/melonDS-android/master/app/src/main/AndroidManifest.xml, https://raw.githubusercontent.com/rafaelvcaetano/melonDS-android/master/app/src/main/java/me/magnum/melonds/ui/emulator/EmulatorActivity.kt). For the MelonDualDS package try '<package>.LAUNCH_ROM' first, then 'me.magnum.melonds.LAUNCH_ROM' (ES-DE uses the latter for both)."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": null,
+    "gameIdKind": "ndsGameCode",
+    "iniStyle": null,
+    "source": "https://raw.githubusercontent.com/rafaelvcaetano/melonDS-android/master/app/src/main/res/xml/pref_video.xml",
+    "notes": "Reference only: melonDS Android stores settings in Android SharedPreferences (preference XML keys such as video_renderer, video_internal_resolution), which other apps cannot write."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced (manual)",
+      "evidence": "inferred",
+      "description": "OpenGL renderer with 4x internal resolution.",
+      "values": [
+        { "section": "SharedPreferences", "key": "video_renderer", "value": "opengl", "uiPath": "Settings > Video > Renderer", "uiValue": "OpenGL", "description": "GPU renderer (required for upscaling).",
+          "source": "inferred", "reason": "The software renderer is the default and does not upscale; valid values software/opengl/compute from arrays.xml.",
+          "keySource": "https://raw.githubusercontent.com/rafaelvcaetano/melonDS-android/master/app/src/main/res/values/arrays.xml" },
+        { "section": "SharedPreferences", "key": "video_internal_resolution", "value": "4", "uiPath": "Settings > Video > Internal resolution", "uiValue": "4x", "description": "4x (1024x768 per screen).",
+          "source": "inferred", "reason": "Largest integer scale of 192-line screens that fits the Thor's 1080-line top panel; allowed values 1-8 in arrays.xml.",
+          "keySource": "https://raw.githubusercontent.com/rafaelvcaetano/melonDS-android/master/app/src/main/res/values/arrays.xml" },
+        { "section": "SharedPreferences", "key": "enable_threaded_rendering", "value": "true", "uiPath": "Settings > Video > Threaded rendering", "uiValue": "On", "description": "Threaded rendering (default on).",
+          "source": "https://raw.githubusercontent.com/rafaelvcaetano/melonDS-android/master/app/src/main/res/xml/pref_video.xml",
+          "keySource": "https://raw.githubusercontent.com/rafaelvcaetano/melonDS-android/master/app/src/main/res/xml/pref_video.xml" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [
+    "Thor guides recommend the MelonDualDS build, which puts the DS bottom screen on the Thor's bottom display (Retro Handhelds Thor guide, search snippet only).",
+    "melonDS works with FreeBIOS but accepts real BIOS/firmware dumps (https://github.com/Desage56/ayn-thor-claude-skill/blob/main/thor-handheld/references/emulators.md)."
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "mupen64plus_fz",
+  "name": "Mupen64Plus FZ",
+  "systems": ["n64"],
+  "supportLevel": "reference",
+  "packages": [
+    { "packageName": "org.mupen64plusae.v3.fzurita.pro", "label": "M64Plus FZ Pro", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "org.mupen64plusae.v3.fzurita", "label": "M64Plus FZ", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "org.mupen64plusae.v3.fzurita.amazon", "label": "M64Plus FZ (Amazon)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "paulscode.android.mupen64plusae.SplashActivity",
+    "action": "android.intent.action.VIEW",
+    "categories": [],
+    "data": "{romUri}",
+    "mimeType": null,
+    "extras": [],
+    "flags": ["NEW_TASK", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_M64PLUS-FZ% %ACTION%=android.intent.action.VIEW %DATA%=%ROMSAF%."
+  },
+  "configTarget": {
+    "mode": "manual",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": null,
+    "gameIdKind": "n64GameCode",
+    "iniStyle": null,
+    "source": "https://raw.githubusercontent.com/mupen64plus-ae/mupen64plus-ae/master/app/src/main/assets/mupen64plus_data/profiles/emulation.cfg",
+    "notes": "Reference only. The app's per-game 'emulation profile' is chosen in its UI; built-in profile definitions come from Mupen64Plus AE (the open-source project FZ derives from)."
+  },
+  "settings": [],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced (manual)",
+      "evidence": "inferred",
+      "description": "Built-in 'GlideN64-Accurate' emulation profile (upstream comment: recommended for high-end devices).",
+      "values": [
+        { "section": "Game settings", "key": "Emulation profile", "value": "GlideN64-Accurate", "uiPath": "Game > Settings > Emulation profile", "uiValue": "GlideN64-Accurate", "description": "GLideN64 with HW lighting and fragment depth write.",
+          "source": "https://raw.githubusercontent.com/mupen64plus-ae/mupen64plus-ae/master/app/src/main/assets/mupen64plus_data/profiles/emulation.cfg", "reason": "Profile comment: 'recommended settings for high-end devices'. Snapdragon 8 Gen 2 is high-end.",
+          "keySource": "https://raw.githubusercontent.com/mupen64plus-ae/mupen64plus-ae/master/app/src/main/assets/mupen64plus_data/profiles/emulation.cfg" }
+      ]
+    },
+    {
+      "id": "thor-quality",
+      "name": "Thor Quality (manual)",
+      "evidence": "inferred",
+      "description": "Built-in 'GlideN64-Very-Accurate' profile (adds color-to-RDRAM copies).",
+      "values": [
+        { "section": "Game settings", "key": "Emulation profile", "value": "GlideN64-Very-Accurate", "uiPath": "Game > Settings > Emulation profile", "uiValue": "GlideN64-Very-Accurate", "description": "Most accurate GLideN64 profile.",
+          "source": "https://raw.githubusercontent.com/mupen64plus-ae/mupen64plus-ae/master/app/src/main/assets/mupen64plus_data/profiles/emulation.cfg", "reason": "Profile comment: 'recommended settings for very-high-end devices'.",
+          "keySource": "https://raw.githubusercontent.com/mupen64plus-ae/mupen64plus-ae/master/app/src/main/assets/mupen64plus_data/profiles/emulation.cfg" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": []
+}

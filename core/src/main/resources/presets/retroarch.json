@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "retroarch",
+  "name": "RetroArch",
+  "systems": ["nes", "snes", "gb", "gbc", "gba", "genesis", "megadrive", "mastersystem", "gamegear", "n64", "psx"],
+  "supportLevel": "full",
+  "packages": [
+    { "packageName": "com.retroarch.aarch64", "label": "RetroArch (64-bit, retroarch.com) - recommended", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/ANDROID-DEV.md" },
+    { "packageName": "com.retroarch", "label": "RetroArch (Play Store / F-Droid / Galaxy Store)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "com.retroarch.browser.retroactivity.RetroActivityFuture",
+    "action": null,
+    "categories": [],
+    "data": null,
+    "mimeType": null,
+    "extras": [
+      { "name": "CONFIGFILE", "type": "string", "value": "/storage/emulated/0/Android/data/{package}/files/retroarch.cfg" },
+      { "name": "LIBRETRO", "type": "string", "value": "/data/user/0/{package}/cores/{coreFile}" },
+      { "name": "ROM", "type": "string", "value": "{romPath}" }
+    ],
+    "flags": ["NEW_TASK"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_RETROARCH% %EXTRA_CONFIGFILE%=%EXTERNALDATA%/Android/data/%ANDROIDPACKAGE%/files/retroarch.cfg %EXTRA_LIBRETRO%=%INTERNALDATA%/%ANDROIDPACKAGE%/cores/<core>_libretro_android.so %EXTRA_ROM%=%ROM%. ES-DE expands %INTERNALDATA% to /data/user/<userid> and %EXTERNALDATA% to /storage/emulated/<userid> (https://gitlab.com/es-de/emulationstation-de/-/raw/master/es-app/src/FileData.cpp); the app uses user 0. RetroArch uses legacy file paths, not SAF URIs, so {romPath} is a real filesystem path derived from the SAF document ID ('primary:ROMs/snes/x.sfc' -> '/storage/emulated/0/ROMs/snes/x.sfc'; '<VOLUME-UUID>:path' -> '/storage/<VOLUME-UUID>/path'). The core must already be installed inside RetroArch or it shows a black screen (ANDROID-DEV.md)."
+  },
+  "configTarget": {
+    "mode": "retroarchOverride",
+    "folderToGrant": "The RetroArch base folder in shared storage, normally /storage/emulated/0/RetroArch (it contains the 'config' folder).",
+    "folderValidation": ["config"],
+    "pathTemplate": "config/{libraryName}/{romBaseName}.cfg",
+    "gameIdKind": "romBaseName",
+    "iniStyle": { "keyValueSeparator": " = ", "quoteValues": true, "boolTrue": "true", "boolFalse": "false" },
+    "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/overrides.md",
+    "notes": "Game override = <config dir>/<core library_name>/<content file name without extension>.cfg containing only the differing keys (config_load_override in https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c). On Android the config dir is <parent>/config where <parent> = /storage/emulated/0/RetroArch when shared storage is writable, else Android/data/<pkg>/files (https://raw.githubusercontent.com/libretro/RetroArch/master/frontend/drivers/platform_unix.c). If the granted folder has no 'config' subfolder the app must fall back to export + manual copy. Format: one 'key = \"value\"' per line (https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg).",
+    "cores": [
+      { "coreFile": "snes9x_libretro_android.so", "libraryName": "Snes9x", "systems": ["snes"], "source": "https://raw.githubusercontent.com/libretro/snes9x/master/libretro/libretro.cpp" },
+      { "coreFile": "mgba_libretro_android.so", "libraryName": "mGBA", "systems": ["gb", "gbc", "gba"], "source": "https://raw.githubusercontent.com/libretro/libretro-core-info/master/mgba_libretro.info" },
+      { "coreFile": "genesis_plus_gx_libretro_android.so", "libraryName": "Genesis Plus GX", "systems": ["genesis", "megadrive", "mastersystem", "gamegear"], "source": "https://raw.githubusercontent.com/libretro/Genesis-Plus-GX/master/libretro/libretro.c" },
+      { "coreFile": "fceumm_libretro_android.so", "libraryName": "FCEUmm", "systems": ["nes"], "source": "https://raw.githubusercontent.com/libretro/libretro-core-info/master/fceumm_libretro.info" },
+      { "coreFile": "pcsx_rearmed_libretro_android.so", "libraryName": "PCSX-ReARMed", "systems": ["psx"], "source": "https://raw.githubusercontent.com/libretro/pcsx_rearmed/master/frontend/libretro.c" },
+      { "coreFile": "mupen64plus_next_gles3_libretro_android.so", "libraryName": "Mupen64Plus-Next", "systems": ["n64"], "source": "https://raw.githubusercontent.com/libretro/mupen64plus-libretro-nx/develop/libretro/libretro.c" }
+    ]
+  },
+  "settings": [
+    {
+      "section": "", "key": "run_ahead_enabled", "label": "Run-ahead", "type": "bool", "group": "Latency", "impact": "high",
+      "default": "false",
+      "description": "Runs frames ahead in the background and rolls back to cut input lag. Costs CPU roughly per extra frame.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c"
+    },
+    {
+      "section": "", "key": "run_ahead_frames", "label": "Run-ahead frames", "type": "int", "group": "Latency", "impact": "high",
+      "min": 1, "max": 6, "step": 1, "default": "1",
+      "description": "How many frames to run ahead. Match the game's internal lag (usually 1-2); too many causes visible jitter.",
+      "keySource": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md"
+    },
+    {
+      "section": "", "key": "run_ahead_secondary_instance", "label": "Run-ahead second instance", "type": "bool", "group": "Latency", "impact": "medium",
+      "default": "false",
+      "description": "Uses a second core instance for run-ahead, which avoids audio glitches with many cores.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c"
+    },
+    {
+      "section": "", "key": "preemptive_frames_enable", "label": "Preemptive frames", "type": "bool", "group": "Latency", "impact": "medium",
+      "default": "false",
+      "description": "Alternative latency reduction that only re-runs frames when input changes. Do not combine with run-ahead.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c"
+    },
+    {
+      "section": "", "key": "video_scale_integer", "label": "Integer scaling", "type": "bool", "group": "Display", "impact": "low",
+      "default": "false",
+      "description": "Scale only by whole numbers for perfectly even pixels (adds borders).",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+    },
+    {
+      "section": "", "key": "video_smooth", "label": "Bilinear filtering", "type": "bool", "group": "Display", "impact": "low",
+      "default": "true",
+      "description": "Smooths pixels when scaling. Off gives sharp pixels.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+    },
+    {
+      "section": "", "key": "video_shader_enable", "label": "Shaders enabled", "type": "bool", "group": "Display", "impact": "medium",
+      "default": "false",
+      "description": "Master switch for shader presets (the preset itself is chosen inside RetroArch).",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+    },
+    {
+      "section": "", "key": "video_frame_delay", "label": "Frame delay (ms)", "type": "int", "group": "Latency", "impact": "medium",
+      "min": 0, "max": 15, "step": 1, "default": "0",
+      "description": "Waits before running the core each frame to reduce latency; too high causes stutter.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+    },
+    {
+      "section": "", "key": "audio_latency", "label": "Audio latency (ms)", "type": "int", "group": "Audio", "impact": "low",
+      "min": 16, "max": 256, "step": 8, "default": "64",
+      "description": "Audio buffer size. Raise if you hear crackling.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+    },
+    {
+      "section": "", "key": "fps_show", "label": "Show FPS", "type": "bool", "group": "Testing", "impact": "low",
+      "default": "false",
+      "description": "On-screen FPS counter for test sessions.",
+      "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg"
+    }
+  ],
+  "presets": [
+    {
+      "id": "thor-low-latency",
+      "name": "Thor Low Latency (8/16-bit)",
+      "evidence": "inferred",
+      "description": "Run-ahead 1 frame with a second instance, sharp pixels. For NES/SNES/Genesis/GBA cores.",
+      "values": [
+        { "section": "", "key": "run_ahead_enabled", "value": "true", "description": "Enable run-ahead.",
+          "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md", "reason": "Run-ahead is the documented way to remove built-in game lag; light 8/16-bit cores have ample CPU headroom on Snapdragon 8 Gen 2.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c" },
+        { "section": "", "key": "run_ahead_frames", "value": "1", "description": "One frame ahead.",
+          "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md", "reason": "Docs: lag frames = frames until the action shows minus 1; 1 is the safe default for most games.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c" },
+        { "section": "", "key": "run_ahead_secondary_instance", "value": "true", "description": "Use a second instance.",
+          "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md", "reason": "Secondary-core mode described in the run-ahead guide.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c" },
+        { "section": "", "key": "video_smooth", "value": "false", "description": "Sharp pixels.",
+          "source": "inferred", "reason": "Preference for crisp pixel art on a 1080p OLED.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" },
+        { "section": "", "key": "fps_show", "value": "true", "description": "FPS counter.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" }
+      ]
+    },
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced",
+      "evidence": "inferred",
+      "description": "No run-ahead (lowest power), smooth scaling. Good for N64/PS1 cores.",
+      "values": [
+        { "section": "", "key": "run_ahead_enabled", "value": "false", "description": "Run-ahead off.",
+          "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md", "reason": "Run-ahead multiplies core CPU cost; the guide warns the machine must run the core that many times faster.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c" },
+        { "section": "", "key": "video_smooth", "value": "true", "description": "Bilinear filtering (RetroArch default).",
+          "source": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" },
+        { "section": "", "key": "fps_show", "value": "true", "description": "FPS counter.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" }
+      ]
+    },
+    {
+      "id": "thor-pixel-perfect",
+      "name": "Thor Pixel Perfect",
+      "evidence": "inferred",
+      "description": "Integer scaling with sharp pixels; run-ahead 1 frame.",
+      "values": [
+        { "section": "", "key": "video_scale_integer", "value": "true", "description": "Integer scaling.",
+          "source": "inferred", "reason": "Even pixel sizes; 1080p divides cleanly by 224-line (4x = 896) and 240-line (4x = 960) content.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" },
+        { "section": "", "key": "video_smooth", "value": "false", "description": "Sharp pixels.",
+          "source": "inferred", "reason": "Pairs with integer scaling.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" },
+        { "section": "", "key": "run_ahead_enabled", "value": "true", "description": "Enable run-ahead.",
+          "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c" },
+        { "section": "", "key": "run_ahead_frames", "value": "1", "description": "One frame ahead.",
+          "source": "https://raw.githubusercontent.com/libretro/docs/master/docs/guides/runahead.md",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/configuration.c" },
+        { "section": "", "key": "fps_show", "value": "true", "description": "FPS counter.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/libretro/RetroArch/master/retroarch.cfg" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [
+    "Use the 64-bit RetroArch from retroarch.com; ES-DE reports the Play Store build lacks cores and can fail to launch from frontends (https://gitlab.com/es-de/emulationstation-de/-/raw/master/ANDROID-DEV.md).",
+    "Shader presets (.slangp) are chosen inside RetroArch; this app only toggles video_shader_enable in v1.",
+    "Core options (.opt files) are out of scope for v1."
+  ]
+}

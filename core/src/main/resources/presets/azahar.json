@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "azahar",
+  "name": "Azahar",
+  "systems": ["n3ds"],
+  "supportLevel": "full",
+  "packages": [
+    { "packageName": "org.azahar_emu.azahar", "label": "Azahar", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "io.github.lime3ds.android", "label": "Lime3DS (predecessor, same activity class)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "org.citra.citra_emu.activities.EmulationActivity",
+    "action": "android.intent.action.VIEW",
+    "categories": ["android.intent.category.DEFAULT"],
+    "data": "{romUri}",
+    "mimeType": "application/octet-stream",
+    "extras": [],
+    "flags": ["NEW_TASK", "CLEAR_TASK", "CLEAR_TOP", "GRANT_READ_URI"],
+    "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml",
+    "notes": "ES-DE: %EMULATOR_AZAHAR% %ACTIVITY_CLEAR_TASK% %ACTIVITY_CLEAR_TOP% %DATA%=%ROMSAF%. The exported EmulationActivity has a VIEW filter with mimeType application/octet-stream and scheme content (https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/AndroidManifest.xml). EmulationFragment opens the URI with the emulator's own ContentResolver (file descriptor), so a read grant on the URI is required (https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt)."
+  },
+  "configTarget": {
+    "mode": "globalIniMerge",
+    "folderToGrant": "The Azahar user folder you selected when setting up Azahar (Azahar > Settings > shows the user directory). It lives in shared storage and is SAF-grantable.",
+    "folderValidation": ["config/config.ini"],
+    "pathTemplate": "config/config.ini",
+    "gameIdKind": "n3dsTitleId",
+    "iniStyle": { "keyValueSeparator": " = ", "boolTrue": "true", "boolFalse": "false" },
+    "source": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/config.cpp",
+    "notes": "Azahar on Android has NO per-game config (feature request still open: https://github.com/azahar-emu/azahar/issues/38; duplicate https://github.com/azahar-emu/azahar/issues/2128). The only config is <user>/config/config.ini (config.cpp: GetUserPath(ConfigDir) + 'config.ini'; SettingsFile.kt getSettingsFile finds config/config.ini in the SAF user tree: https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/utils/SettingsFile.kt). The app therefore applies a game's profile by MERGING only the managed keys into config.ini right before launching that game, after saving a one-time pristine backup and a per-apply backup in app-private storage. EmulationActivity.onCreate calls settings.loadSettings() on every launch (https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt). BOOLEAN keys must be written as true/false: the Kotlin parser uses value.toBoolean(), so '1' would read as false (SettingsFile.kt settingFromLine). Integer keys are plain integers. The user must close Azahar before applying (Azahar may rewrite config.ini when its settings screen closes)."
+  },
+  "settings": [
+    {
+      "section": "Renderer", "key": "graphics_api", "label": "Graphics API", "type": "enum", "group": "Renderer", "impact": "high",
+      "options": [ { "value": "2", "label": "Vulkan (default)" }, { "value": "1", "label": "OpenGL ES" }, { "value": "0", "label": "Software" } ],
+      "default": "2",
+      "description": "Renderer backend.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h"
+    },
+    {
+      "section": "Renderer", "key": "resolution_factor", "label": "Internal resolution", "type": "enum", "group": "Resolution", "impact": "high",
+      "options": [
+        { "value": "0", "label": "Auto (window size)" }, { "value": "1", "label": "1x native (400x240)" }, { "value": "2", "label": "2x (800x480)" },
+        { "value": "3", "label": "3x (1200x720)" }, { "value": "4", "label": "4x (1600x960)" }, { "value": "5", "label": "5x (2000x1200)" }, { "value": "6", "label": "6x" }
+      ],
+      "default": "1",
+      "description": "Scale of the 3DS screens. 4x is the largest integer scale whose top screen fits the Thor's 1080-pixel height.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h"
+    },
+    {
+      "section": "Renderer", "key": "async_shader_compilation", "label": "Async shader compilation", "type": "bool", "group": "Shaders", "impact": "medium",
+      "default": "false",
+      "description": "Compile shaders on worker threads (Vulkan only). Reduces stutter.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt"
+    },
+    {
+      "section": "Renderer", "key": "use_disk_shader_cache", "label": "Disk shader cache", "type": "bool", "group": "Shaders", "impact": "medium",
+      "default": "true",
+      "description": "Store compiled shaders on disk to reduce stutter next time.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt"
+    },
+    {
+      "section": "Renderer", "key": "texture_filter", "label": "Texture filter", "type": "enum", "group": "Enhancements", "impact": "medium",
+      "options": [ { "value": "0", "label": "None" }, { "value": "1", "label": "Anime4K" }, { "value": "2", "label": "Bicubic" }, { "value": "3", "label": "ScaleForce" }, { "value": "4", "label": "xBRZ" }, { "value": "5", "label": "MMPX" } ],
+      "default": "0",
+      "description": "Texture upscaling filter.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h"
+    },
+    {
+      "section": "Core", "key": "cpu_clock_percentage", "label": "CPU clock %", "type": "int", "group": "CPU", "impact": "high",
+      "min": 25, "max": 400, "step": 5, "default": "100",
+      "description": "Emulated CPU clock. Underclocking can raise speed but may freeze games; overclocking can remove in-game lag.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h"
+    },
+    {
+      "section": "Layout", "key": "layout_option", "label": "Screen layout (main display)", "type": "enum", "group": "Dual screen", "impact": "low",
+      "options": [ { "value": "0", "label": "Original (stacked)" }, { "value": "1", "label": "Single screen" }, { "value": "2", "label": "Large screen" }, { "value": "3", "label": "Side by side" }, { "value": "4", "label": "Hybrid" }, { "value": "5", "label": "Custom" } ],
+      "default": "0",
+      "description": "Layout on the Thor's top display. On Android the enum has no SeparateWindows entry, so Hybrid = 4 and Custom = 5.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h"
+    },
+    {
+      "section": "Layout", "key": "secondary_display_layout", "label": "Secondary display layout", "type": "enum", "group": "Dual screen", "impact": "low",
+      "options": [ { "value": "0", "label": "System default (mirror)" }, { "value": "1", "label": "Top screen only" }, { "value": "2", "label": "Bottom screen only" }, { "value": "3", "label": "Side by side" }, { "value": "4", "label": "Opposite of primary (Azahar 2126.0+)" }, { "value": "5", "label": "Original" }, { "value": "6", "label": "Hybrid" }, { "value": "7", "label": "Large screen" } ],
+      "default": "4",
+      "description": "What Azahar shows on the second display (the Thor's bottom screen).",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h"
+    },
+    {
+      "section": "Layout", "key": "swap_screen", "label": "Swap screens", "type": "bool", "group": "Dual screen", "impact": "low",
+      "default": "false",
+      "description": "Makes the 3DS bottom screen the prominent one.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt"
+    },
+    {
+      "section": "Layout", "key": "performance_overlay_enable", "label": "Performance overlay", "type": "bool", "group": "Testing", "impact": "low",
+      "default": "false",
+      "description": "Shows Azahar's FPS/speed overlay for test sessions.",
+      "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt"
+    }
+  ],
+  "presets": [
+    {
+      "id": "thor-dual-screen",
+      "name": "Thor Dual Screen (layout only)",
+      "evidence": "thor",
+      "description": "3DS top screen on the Thor top display, 3DS bottom screen on the Thor bottom display. Combine with any performance preset.",
+      "values": [
+        { "section": "Layout", "key": "layout_option", "value": "1", "description": "Single screen on the main (top) display.",
+          "source": "inferred", "reason": "Thor/dual-screen guides (aliteq.com and droix.net, search snippets only; not fetchable) say: Landscape Screen Layout = Single Screen and Secondary Display = Bottom Screen. Enum index from settings.h (SingleScreen = 1).",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "secondary_display_layout", "value": "4", "description": "Opposite of primary: bottom screen on the Thor's lower display, and it follows swaps.",
+          "source": "https://github.com/azahar-emu/azahar/pull/1385", "reason": "The PR author calls 'Reverse/Opposite of Primary' the most natural behavior on two-screen devices; merged for 2126.0. For older Azahar builds use 2 (Bottom Screen Only).",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "swap_screen", "value": "false", "description": "3DS top screen stays on the Thor top display.",
+          "source": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt" }
+      ]
+    },
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced",
+      "evidence": "inferred",
+      "description": "Vulkan, 3x (1200x720 top screen), async shaders, disk cache, dual-screen layout.",
+      "values": [
+        { "section": "Renderer", "key": "graphics_api", "value": "2", "description": "Vulkan.",
+          "source": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/IntSetting.kt", "reason": "Azahar Android default.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "resolution_factor", "value": "3", "description": "3x native.",
+          "source": "inferred", "reason": "Integer scale below the 4x fit limit of a 1080p panel; leaves GPU headroom on Snapdragon 8 Gen 2. No reachable Thor-specific number.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h" },
+        { "section": "Renderer", "key": "async_shader_compilation", "value": "true", "description": "Async shader compilation.",
+          "source": "inferred", "reason": "Reduces shader stutter (default_ini.h describes the option); Vulkan only.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h" },
+        { "section": "Renderer", "key": "use_disk_shader_cache", "value": "true", "description": "Disk shader cache.",
+          "source": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt", "reason": "Emulator default.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt" },
+        { "section": "Layout", "key": "layout_option", "value": "1", "description": "Single screen on the top display.",
+          "source": "inferred", "reason": "See Thor Dual Screen preset.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "secondary_display_layout", "value": "4", "description": "Opposite of primary on the bottom display.",
+          "source": "https://github.com/azahar-emu/azahar/pull/1385",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "performance_overlay_enable", "value": "true", "description": "FPS overlay for test sessions.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt" }
+      ]
+    },
+    {
+      "id": "thor-performance",
+      "name": "Thor Performance",
+      "evidence": "inferred",
+      "description": "2x resolution for demanding titles; dual-screen layout kept.",
+      "values": [
+        { "section": "Renderer", "key": "graphics_api", "value": "2", "description": "Vulkan.",
+          "source": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/IntSetting.kt",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "resolution_factor", "value": "2", "description": "2x native.",
+          "source": "inferred", "reason": "One step below Balanced.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h" },
+        { "section": "Renderer", "key": "async_shader_compilation", "value": "true", "description": "Async shader compilation.",
+          "source": "inferred", "reason": "Same as Balanced.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h" },
+        { "section": "Layout", "key": "layout_option", "value": "1", "description": "Single screen on the top display.",
+          "source": "inferred", "reason": "See Thor Dual Screen preset.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "secondary_display_layout", "value": "4", "description": "Opposite of primary on the bottom display.",
+          "source": "https://github.com/azahar-emu/azahar/pull/1385",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "performance_overlay_enable", "value": "true", "description": "FPS overlay.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt" }
+      ]
+    },
+    {
+      "id": "thor-quality",
+      "name": "Thor Quality",
+      "evidence": "inferred",
+      "description": "4x resolution (1600x960 top screen, the largest integer scale that fits 1080p).",
+      "values": [
+        { "section": "Renderer", "key": "graphics_api", "value": "2", "description": "Vulkan.",
+          "source": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/IntSetting.kt",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "resolution_factor", "value": "4", "description": "4x native.",
+          "source": "inferred", "reason": "400x240 x4 = 1600x960, the largest integer scale under 1080 lines.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h" },
+        { "section": "Renderer", "key": "async_shader_compilation", "value": "true", "description": "Async shader compilation.",
+          "source": "inferred", "reason": "Same as Balanced.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/jni/default_ini.h" },
+        { "section": "Layout", "key": "layout_option", "value": "1", "description": "Single screen on the top display.",
+          "source": "inferred", "reason": "See Thor Dual Screen preset.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "secondary_display_layout", "value": "4", "description": "Opposite of primary on the bottom display.",
+          "source": "https://github.com/azahar-emu/azahar/pull/1385",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/common/settings.h" },
+        { "section": "Layout", "key": "performance_overlay_enable", "value": "true", "description": "FPS overlay.",
+          "source": "inferred", "reason": "Required by this app's test procedure.",
+          "keySource": "https://raw.githubusercontent.com/azahar-emu/azahar/master/src/android/app/src/main/java/org/citra/citra_emu/features/settings/model/BooleanSetting.kt" }
+      ]
+    }
+  ],
+  "gameSpecific": [],
+  "manualNotes": [
+    "Azahar now expects decrypted .cci/.3ds dumps; encrypted dumps may not boot (guide snippet, joeysretrohandhelds.com, not fetchable).",
+    "Known Thor quirk: with an external monitor attached, Azahar may move output to the external display; maintainers closed this as not planned (https://github.com/azahar-emu/azahar/issues/1437). Test sessions should be run without an external display."
+  ]
+}

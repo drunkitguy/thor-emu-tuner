@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "emulatorId": "eden",
+  "name": "Eden",
+  "systems": ["switch"],
+  "supportLevel": "full",
+  "packages": [
+    { "packageName": "dev.eden.eden_emulator", "label": "Eden (stable)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "dev.legacy.eden_emulator", "label": "Eden (legacy build)", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" },
+    { "packageName": "dev.eden.eden_emulator.nightly", "label": "Eden Nightly", "source": "https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_find_rules.xml" }
+  ],
+  "launch": {
+    "packageName": "{package}",
+    "activity": "org.yuzu.yuzu_emu.activities.EmulationActivity",
+    "action": "dev.eden.eden_emulator.LAUNCH_WITH_CUSTOM_CONFIG",
+    "categories": ["android.intent.category.DEFAULT"],
+    "data": null,
+    "mimeType": null,
+    "extras": [
+      { "name": "title_id", "type": "string", "value": "{titleId}" },
+      { "name": "custom_settings", "type": "string", "value": "{customSettingsIni}" }
+    ],
+    "flags": ["NEW_TASK"],
+    "source": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/android/app/src/main/java/org/yuzu/yuzu_emu/utils/CustomSettingsHandler.kt",
+    "notes": "CUSTOM_CONFIG_ACTION = 'dev.eden.eden_emulator.LAUNCH_WITH_CUSTOM_CONFIG' (constant, not derived from the applicationId, so it is the same string for nightly/legacy packages), EXTRA_TITLE_ID = 'title_id' (16 hex digits), EXTRA_CUSTOM_SETTINGS = 'custom_settings' (the COMPLETE per-game INI text). Eden looks the game up by title ID in ITS OWN game list (the Switch folder must be added in Eden), shows a launch confirmation dialog, asks before overwriting an existing per-game config, writes the text to config/custom/<TITLEID>.ini, and offers to download a missing driver named in [GpuDriver] driver_path. Handled in EmulationFragment.handleEmuReadyIntent (https://raw.githubusercontent.com/eden-emulator/mirror/master/src/android/app/src/main/java/org/yuzu/yuzu_emu/fragments/EmulationFragment.kt). The intent filter is declared in https://raw.githubusercontent.com/eden-emulator/mirror/master/src/android/app/src/main/AndroidManifest.xml."
+  },
+  "alternateLaunch": {
+    "packageName": "{package}",
+    "activity": "org.yuzu.yuzu_emu.activities.EmulationActivity",
+    "action": "android.intent.action.VIEW",
+    "categories": ["android.intent.category.DEFAULT"],
+    "data": "{romUri}",
+    "mimeType": "application/octet-stream",
+    "extras": [],
+    "flags": ["NEW_TASK", "GRANT_READ_URI"],
+    "source": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/android/app/src/main/AndroidManifest.xml",
+    "notes": "Plain launch without applying settings (manifest declares VIEW + mimeType application/octet-stream + scheme content). ES-DE instead uses %ACTION%=android.nfc.action.TECH_DISCOVERED %DATA%=%ROMPROVIDER% (https://gitlab.com/es-de/emulationstation-de/-/raw/master/resources/systems/android/es_systems.xml); use that as a second fallback if VIEW fails."
+  },
+  "configTarget": {
+    "mode": "intentInlineIni",
+    "folderToGrant": null,
+    "folderValidation": [],
+    "pathTemplate": "config/custom/{gameId}.ini",
+    "gameIdKind": "switchTitleId",
+    "iniStyle": { "keyValueSeparator": "=", "boolTrue": "true", "boolFalse": "false" },
+    "source": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/frontend_common/config.cpp",
+    "notes": "No file access needed: the INI travels inside the launch intent. Per-game file format (WriteSettingGeneric/ReadSettingGeneric in config.cpp): for each overridden switchable setting write three lines in its category section: '<key>\\use_global=false', '<key>\\default=<true if value equals the emulator default else false>', '<key>=<value>'. If '\\default' is true Eden uses the built-in default instead of the value, so never write default=true unless value == default. Enums are written as their integer index (settings_setting.h ToString), bools as true/false. Section names come from TranslateCategory (settings.cpp): Renderer/RendererAdvanced/RendererHacks -> [Renderer], Cpu/CpuDebug/CpuUnsafe -> [Cpu], Core -> [Core], System -> [System]. File name uses the program ID as %016X (native_config.cpp). The mirror repo on GitHub mirrors git.eden-emu.dev; Eden changes quickly, so the app must show the Eden versionName it was tested with and warn on enum-count mismatches."
+  },
+  "settings": [
+    {
+      "section": "Renderer", "key": "resolution_setup", "label": "Resolution scale", "type": "enum", "group": "Resolution", "impact": "high",
+      "options": [
+        { "value": "0", "label": "0.25x" }, { "value": "1", "label": "0.5x" }, { "value": "2", "label": "0.75x" }, { "value": "3", "label": "1x (native)" },
+        { "value": "4", "label": "1.25x" }, { "value": "5", "label": "1.5x" }, { "value": "6", "label": "2x" }, { "value": "7", "label": "3x" }
+      ],
+      "default": "3",
+      "description": "Multiplier on the Switch's native resolution (720p handheld / 1080p docked). Heaviest GPU knob.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h"
+    },
+    {
+      "section": "Renderer", "key": "use_asynchronous_shaders", "label": "Asynchronous shaders", "type": "bool", "group": "Shaders", "impact": "medium",
+      "default": "false",
+      "description": "Compiles shaders in the background: far less stutter, some effects appear late or flicker briefly.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h"
+    },
+    {
+      "section": "Renderer", "key": "use_disk_shader_cache", "label": "Disk shader cache", "type": "bool", "group": "Shaders", "impact": "medium",
+      "default": "true",
+      "description": "Saves compiled shaders so later sessions stutter less. Keep on.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h"
+    },
+    {
+      "section": "Renderer", "key": "gpu_accuracy", "label": "GPU accuracy", "type": "enum", "group": "Renderer", "impact": "high",
+      "options": [ { "value": "0", "label": "Low (Android default)" }, { "value": "1", "label": "High" } ],
+      "default": "0",
+      "description": "High fixes some rendering bugs at a large performance cost.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h"
+    },
+    {
+      "section": "Renderer", "key": "scaling_filter", "label": "Window scaling filter", "type": "enum", "group": "Resolution", "impact": "low",
+      "options": [
+        { "value": "0", "label": "Nearest neighbor (default)" }, { "value": "1", "label": "Bilinear" }, { "value": "2", "label": "Bicubic" },
+        { "value": "5", "label": "ScaleForce" }, { "value": "6", "label": "AMD FSR" }, { "value": "7", "label": "Area" }
+      ],
+      "default": "0",
+      "description": "Filter used to scale the rendered image to the screen. FSR sharpens a lower internal resolution.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h"
+    },
+    {
+      "section": "Renderer", "key": "anti_aliasing", "label": "Anti-aliasing", "type": "enum", "group": "Enhancements", "impact": "low",
+      "options": [ { "value": "0", "label": "None" }, { "value": "1", "label": "FXAA" }, { "value": "2", "label": "SMAA" } ],
+      "default": "0",
+      "description": "Post-process anti-aliasing.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h"
+    },
+    {
+      "section": "Renderer", "key": "use_vsync", "label": "VSync mode", "type": "enum", "group": "Frame pacing", "impact": "low",
+      "options": [ { "value": "0", "label": "Immediate (off)" }, { "value": "1", "label": "Mailbox" }, { "value": "2", "label": "FIFO (default)" }, { "value": "3", "label": "FIFO relaxed" } ],
+      "default": "2",
+      "description": "Presentation mode. FIFO = classic vsync.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h"
+    },
+    {
+      "section": "Renderer", "key": "backend", "label": "Graphics API", "type": "enum", "group": "Renderer", "impact": "high",
+      "options": [ { "value": "1", "label": "Vulkan (default)" }, { "value": "0", "label": "OpenGL (GLSL)" } ],
+      "default": "1",
+      "description": "Keep Vulkan on Android unless a game specifically needs OpenGL.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h"
+    },
+    {
+      "section": "Core", "key": "use_multi_core", "label": "Multicore CPU emulation", "type": "bool", "group": "CPU", "impact": "high",
+      "default": "true",
+      "description": "Emulates the Switch's CPU cores on separate threads. Keep on unless a game needs it off.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h"
+    },
+    {
+      "section": "Cpu", "key": "cpu_accuracy", "label": "CPU accuracy", "type": "enum", "group": "CPU", "impact": "medium",
+      "options": [ { "value": "0", "label": "Auto (default)" }, { "value": "1", "label": "Accurate" }, { "value": "2", "label": "Unsafe" }, { "value": "3", "label": "Paranoid" } ],
+      "default": "0",
+      "description": "CPU emulation accuracy/speed trade-off.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h"
+    },
+    {
+      "section": "System", "key": "use_docked_mode", "label": "Console mode", "type": "enum", "group": "Resolution", "impact": "high",
+      "options": [ { "value": "0", "label": "Handheld (720p, Android default)" }, { "value": "1", "label": "Docked (1080p)" } ],
+      "default": "0",
+      "description": "Games render at 720p handheld or 1080p docked. Docked is sharper on the Thor's 1080p screen but heavier.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h"
+    },
+    {
+      "section": "System", "key": "fast_gpu_time", "label": "GPU clock (emulated)", "type": "enum", "group": "Renderer", "impact": "medium",
+      "options": [ { "value": "0", "label": "Normal" }, { "value": "1", "label": "Boost (default)" }, { "value": "2", "label": "Overclock" } ],
+      "default": "1",
+      "description": "Reported GPU timing; affects games with dynamic resolution or frame pacing logic.",
+      "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h"
+    }
+  ],
+  "presets": [
+    {
+      "id": "thor-balanced",
+      "name": "Thor Balanced",
+      "evidence": "inferred",
+      "description": "Handheld mode, 1x, asynchronous shaders, FSR scaling to the 1080p screen.",
+      "values": [
+        { "section": "System", "key": "use_docked_mode", "value": "0", "description": "Handheld mode (720p render).",
+          "source": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h", "reason": "Eden's Android default; community guidance says choose Docked or Handheld per game (joeysretrohandhelds.com Eden guide, search snippet only).",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "resolution_setup", "value": "3", "description": "1x native scale.",
+          "source": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h", "reason": "Eden default (ResolutionSetup::Res1X = index 3).",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h" },
+        { "section": "Renderer", "key": "use_asynchronous_shaders", "value": "true", "description": "Background shader compilation to cut stutter.",
+          "source": "inferred", "reason": "Community guides describe toggling asynchronous shaders per game on Snapdragon devices (search snippet only); enabled in the baseline because stutter dominates first-play experience.",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "scaling_filter", "value": "6", "description": "AMD FSR upscaling of the 720p image to the 1080p panel.",
+          "source": "inferred", "reason": "Handheld 720p output is upscaled to a 1080p panel; FSR (ScalingFilter::Fsr = 6) sharpens that cheaply.",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h" }
+      ]
+    },
+    {
+      "id": "thor-performance",
+      "name": "Thor Performance",
+      "evidence": "inferred",
+      "description": "0.75x scale in handheld mode with async shaders and FSR, for heavy 3D games.",
+      "values": [
+        { "section": "System", "key": "use_docked_mode", "value": "0", "description": "Handheld mode.",
+          "source": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "resolution_setup", "value": "2", "description": "0.75x native scale.",
+          "source": "inferred", "reason": "One step below native to gain GPU headroom (ResolutionSetup::Res3_4X = index 2).",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h" },
+        { "section": "Renderer", "key": "use_asynchronous_shaders", "value": "true", "description": "Background shader compilation.",
+          "source": "inferred", "reason": "Same as Thor Balanced.",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "scaling_filter", "value": "6", "description": "FSR upscaling.",
+          "source": "inferred", "reason": "Recovers sharpness lost to the lower internal resolution.",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h" }
+      ]
+    },
+    {
+      "id": "thor-quality",
+      "name": "Thor Quality",
+      "evidence": "inferred",
+      "description": "Docked mode (1080p) at 1x with FXAA, for lighter games.",
+      "values": [
+        { "section": "System", "key": "use_docked_mode", "value": "1", "description": "Docked mode: 1080p render, native for the top screen.",
+          "source": "inferred", "reason": "Matches the Thor's 1920x1080 top panel; heavier than handheld.",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "resolution_setup", "value": "3", "description": "1x scale.",
+          "source": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h" },
+        { "section": "Renderer", "key": "use_asynchronous_shaders", "value": "true", "description": "Background shader compilation.",
+          "source": "inferred", "reason": "Same as Thor Balanced.",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings.h" },
+        { "section": "Renderer", "key": "anti_aliasing", "value": "1", "description": "FXAA.",
+          "source": "inferred", "reason": "Cheap post-process AA; AntiAliasing::Fxaa = 1.",
+          "keySource": "https://raw.githubusercontent.com/eden-emulator/mirror/master/src/common/settings_enums.h" }
+      ]
+    }
+  ],
+  "gameSpecific": [
+    { "gameId": "010038B015560000", "title": "FINAL FANTASY TACTICS - The Ivalice Chronicles", "appliedBy": "emulator", "condition": "CPU:JIT",
+      "note": "From Eden's curated overrides database; Eden applies it itself when overrides.ini is installed in its cache directory. Keys in overrides.ini are NOT always config.ini keys, so the app only displays these.",
+      "values": [ { "section": "overrides.ini", "key": "multicore", "value": "false", "description": "Disable multicore when using the JIT CPU backend.", "source": "https://raw.githubusercontent.com/eden-emulator/eden-overrides/master/overrides.ini" } ] },
+    { "gameId": "0100B490203C4000", "title": "Lone Fungus", "appliedBy": "emulator",
+      "values": [ { "section": "overrides.ini", "key": "renderer_backend", "value": "opengl", "description": "Use OpenGL.", "source": "https://raw.githubusercontent.com/eden-emulator/eden-overrides/master/overrides.ini" } ] },
+    { "gameId": "0100781020710000", "title": "Ninja Gaiden Ragebound", "appliedBy": "emulator",
+      "values": [ { "section": "overrides.ini", "key": "use_squashed_iterated_blend", "value": "true", "description": "Rendering fix.", "source": "https://raw.githubusercontent.com/eden-emulator/eden-overrides/master/overrides.ini" } ] },
+    { "gameId": "0100AD80208A8000", "title": "Demon Slayer - The Hinokami Chronicles 2", "appliedBy": "emulator",
+      "values": [ { "section": "overrides.ini", "key": "smo", "value": "true", "description": "Emulator-internal fix flag.", "source": "https://raw.githubusercontent.com/eden-emulator/eden-overrides/master/overrides.ini" } ] },
+    { "gameId": "01006E001823C000", "title": "Sonic Racing: CrossWorlds", "appliedBy": "emulator",
+      "values": [ { "section": "overrides.ini", "key": "smo", "value": "true", "description": "Emulator-internal fix flag.", "source": "https://raw.githubusercontent.com/eden-emulator/eden-overrides/master/overrides.ini" } ] },
+    { "gameId": "0100DA400F624000", "title": "PHOGS!", "appliedBy": "emulator",
+      "values": [ { "section": "overrides.ini", "key": "controller_applet", "value": "real", "description": "Use the real controller applet.", "source": "https://raw.githubusercontent.com/eden-emulator/eden-overrides/master/overrides.ini" } ] }
+  ],
+  "manualNotes": [
+    "Eden needs user-dumped firmware and keys (not handled by this app).",
+    "The Switch games folder must be added inside Eden, otherwise LAUNCH_WITH_CUSTOM_CONFIG reports 'game not found for title ID'.",
+    "GPU driver: leave [GpuDriver] driver_path empty by default. Eden can recommend a driver itself; a Thor-specific community snippet reports no clear gain from custom drivers on the Thor (joeysretrohandhelds.com, search snippet only)."
+  ]
+}
