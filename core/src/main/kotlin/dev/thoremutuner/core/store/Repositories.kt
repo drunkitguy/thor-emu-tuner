@@ -1,0 +1,196 @@
+package dev.thoremutuner.core.store
+
+import dev.thoremutuner.core.bench.TestSession
+import dev.thoremutuner.core.config.AzaharState
+import dev.thoremutuner.core.model.Game
+import dev.thoremutuner.core.profile.GameProfile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+/** A granted SAF tree. [label] is a display name only. */
+@Serializable
+data class FolderGrant(val treeUri: String, val rootDocumentId: String, val label: String)
+
+/** `settings.json` (PLAN section 10). */
+@Serializable
+data class AppSettings(
+    val schemaVersion: Int = CURRENT_SCHEMA,
+    val onboardingDone: Boolean = false,
+    val romFolders: List<FolderGrant> = emptyList(),
+    /** emulatorId -> granted config folder. */
+    val emulatorFolders: Map<String, FolderGrant> = emptyMap(),
+    /** emulatorId -> preferred package name. */
+    val preferredPackage: Map<String, String> = emptyMap(),
+    /** system id -> preferred emulatorId. */
+    val preferredEmulator: Map<String, String> = emptyMap(),
+    /** system id -> preferred RetroArch core file. */
+    val preferredCore: Map<String, String> = emptyMap(),
+    /** gameKey -> emulatorId chosen on the game screen. */
+    val gameEmulator: Map<String, String> = emptyMap(),
+    val exportFolder: FolderGrant? = null,
+    /** One-time hints already shown (e.g. "folderHint:dolphin"). */
+    val hintsShown: Set<String> = emptySet(),
+    val lastPerfMode: String = "",
+    val lastFanMode: String = "",
+)
+
+/** `library.json`: games plus scan metadata (the games double as the scan cache). */
+@Serializable
+data class Library(
+    val schemaVersion: Int = CURRENT_SCHEMA,
+    val games: List<Game> = emptyList(),
+    val lastScanAt: Long? = null,
+)
+
+@Serializable
+data class ProfilesFile(val schemaVersion: Int = CURRENT_SCHEMA, val profiles: List<GameProfile> = emptyList())
+
+@Serializable
+data class SessionsFile(val schemaVersion: Int = CURRENT_SCHEMA, val sessions: List<TestSession> = emptyList())
+
+const val CURRENT_SCHEMA = 1
+
+class NewerSchemaException(path: String, version: Int) :
+    IllegalStateException("$path was written by a newer app version (schema $version)")
+
+/** Reads/writes versioned JSON documents; unreadable files fall back to defaults rather than crash. */
+internal class Codec(private val store: JsonStore, private val json: Json = ThorJson.store) {
+    fun <T> load(path: String, serializer: KSerializer<T>, default: () -> T): T {
+        val text = store.read(path) ?: return default()
+        val version = runCatching { json.parseToJsonElement(text).jsonObject["schemaVersion"]?.jsonPrimitive?.int }.getOrNull()
+        if (version != null && version > CURRENT_SCHEMA) throw NewerSchemaException(path, version)
+        return try {
+            json.decodeFromString(serializer, migrate(text, version))
+        } catch (e: kotlinx.serialization.SerializationException) {
+            // Keep the unreadable file for inspection and start fresh.
+            store.write("$path.corrupt", text)
+            default()
+        }
+    }
+
+    fun <T> save(path: String, serializer: KSerializer<T>, value: T) = store.write(path, json.encodeToString(serializer, value))
+
+    /** Schema migrations (v1 is the first schema; add steps here when it changes). */
+    private fun migrate(text: String, version: Int?): String = text
+}
+
+class SettingsRepository(store: JsonStore) {
+    private val codec = Codec(store)
+    private val mutex = Mutex()
+    private val state = MutableStateFlow<AppSettings?>(null)
+    val flow: StateFlow<AppSettings?> = state.asStateFlow()
+
+    suspend fun get(): AppSettings = mutex.withLock { current() }
+
+    suspend fun update(transform: (AppSettings) -> AppSettings): AppSettings = mutex.withLock {
+        val next = transform(current())
+        codec.save(PATH, AppSettings.serializer(), next)
+        state.value = next
+        next
+    }
+
+    private fun current(): AppSettings = state.value ?: codec.load(PATH, AppSettings.serializer()) { AppSettings() }.also { state.value = it }
+
+    companion object { const val PATH = "settings.json" }
+}
+
+class LibraryRepository(store: JsonStore) {
+    private val codec = Codec(store)
+    private val mutex = Mutex()
+    private val state = MutableStateFlow<Library?>(null)
+    val flow: StateFlow<Library?> = state.asStateFlow()
+
+    suspend fun get(): Library = mutex.withLock { current() }
+
+    suspend fun save(library: Library) = mutex.withLock {
+        codec.save(PATH, Library.serializer(), library)
+        state.value = library
+    }
+
+    suspend fun updateGame(key: String, transform: (Game) -> Game): Game? = mutex.withLock {
+        val lib = current()
+        var updated: Game? = null
+        val games = lib.games.map { if (it.key == key) transform(it).also { g -> updated = g } else it }
+        val next = lib.copy(games = games)
+        codec.save(PATH, Library.serializer(), next)
+        state.value = next
+        updated
+    }
+
+    private fun current(): Library = state.value ?: codec.load(PATH, Library.serializer()) { Library() }.also { state.value = it }
+
+    companion object { const val PATH = "library.json" }
+}
+
+class ProfileRepository(store: JsonStore) {
+    private val codec = Codec(store)
+    private val mutex = Mutex()
+
+    suspend fun get(gameKey: String): List<GameProfile> = mutex.withLock { load(gameKey) }
+
+    suspend fun update(gameKey: String, transform: (List<GameProfile>) -> List<GameProfile>): List<GameProfile> =
+        mutex.withLock {
+            val next = transform(load(gameKey))
+            codec.save(path(gameKey), ProfilesFile.serializer(), ProfilesFile(profiles = next))
+            next
+        }
+
+    private fun load(gameKey: String) = codec.load(path(gameKey), ProfilesFile.serializer()) { ProfilesFile() }.profiles
+
+    companion object {
+        fun path(gameKey: String): String {
+            require(gameKey.matches(Regex("^[0-9a-f]{16}$"))) { "invalid game key" }
+            return "profiles/$gameKey.json"
+        }
+    }
+}
+
+class SessionRepository(private val store: JsonStore) {
+    private val codec = Codec(store)
+    private val mutex = Mutex()
+
+    suspend fun get(gameKey: String): List<TestSession> = mutex.withLock { load(gameKey) }
+
+    /** Inserts or replaces a session by id. */
+    suspend fun upsert(session: TestSession) = mutex.withLock {
+        val list = load(session.gameKey).filterNot { it.id == session.id } + session
+        codec.save(path(session.gameKey), SessionsFile.serializer(), SessionsFile(sessions = list.sortedBy { it.startedAt }))
+    }
+
+    suspend fun delete(gameKey: String, id: String) = mutex.withLock {
+        val list = load(gameKey).filterNot { it.id == id }
+        codec.save(path(gameKey), SessionsFile.serializer(), SessionsFile(sessions = list))
+    }
+
+    suspend fun all(): List<TestSession> = mutex.withLock {
+        store.list("sessions").filter { it.endsWith(".json") }.flatMap { load(it.removeSuffix(".json")) }
+    }
+
+    private fun load(gameKey: String) = codec.load(path(gameKey), SessionsFile.serializer()) { SessionsFile() }.sessions
+
+    companion object {
+        fun path(gameKey: String): String {
+            require(gameKey.matches(Regex("^[0-9a-f]{16}$"))) { "invalid game key" }
+            return "sessions/$gameKey.json"
+        }
+    }
+}
+
+class AzaharStateRepository(store: JsonStore) {
+    private val codec = Codec(store)
+    private val mutex = Mutex()
+
+    suspend fun get(): AzaharState = mutex.withLock { codec.load(PATH, AzaharState.serializer()) { AzaharState() } }
+    suspend fun save(state: AzaharState) = mutex.withLock { codec.save(PATH, AzaharState.serializer(), state) }
+
+    companion object { const val PATH = "azahar_state.json" }
+}
