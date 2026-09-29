@@ -1,0 +1,5 @@
+# Test fixtures and golden files are compared byte for byte: never convert line endings.
+core/src/test/resources/** -text
+*.jks binary
+gradlew text eol=lf
+*.bat text eol=crlf
