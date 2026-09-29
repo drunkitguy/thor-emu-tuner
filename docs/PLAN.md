@@ -42,6 +42,10 @@ The app is a single-activity Compose app. On first run it asks for ROM folders t
 
 "Reference" means: presets are shown as a checklist with `uiPath`/`uiValue`, launch and test sessions work, and nothing is written. Launch, test sessions and history work identically for all 13 emulators.
 
+Reference emulators are still tinkerable: the user saves **manual revisions** (a free-form list of setting label + value, plus a note), seeded from the preset's `uiPath`/`uiValue`, stored in `ProfileRevision.values` (`section` = UI path, `key` = setting label, `value` = what to pick). Nothing is written to the emulator, but test sessions reference these revisions, so PS2, DS, etc. get the same per-game settings history and A/B comparison.
+
+Package lists may repeat a package with different activities (armsx2, flycast). Launch targets are resolved as ordered, de-duplicated `(package, activity)` pairs; `<queries>` and the UI de-duplicate by package.
+
 All launch specs, package names and config targets live in `core/src/main/resources/presets/*.json` (index: `presets/index.json`). Nothing emulator-specific is hard-coded in Kotlin except the five writers in §7.
 
 ## 3. Architecture
@@ -96,8 +100,8 @@ thor-emu-tuner/
   - `include(":core")`, and `if (androidEnabled) include(":app")`.
 - Root `build.gradle.kts`:
   - `plugins { kotlin("jvm") version V apply false; kotlin("plugin.serialization") version V apply false; kotlin("plugin.compose") version V apply false }`.
-  - A `buildscript { dependencies { if (<:app included>) classpath("com.android.tools.build:gradle:$AGP") } }` block. This puts AGP and KGP in the same root classloader, and `:app` applies `com.android.application` / `org.jetbrains.kotlin.android` **without versions**.
-- Versions (pin in `libs.versions.toml`): Kotlin **2.0.21**, AGP **8.7.3**, Gradle wrapper **8.14.3**, Compose BOM **2024.12.01**, activity-compose 1.9.3, navigation-compose 2.8.5, lifecycle 2.8.7, kotlinx-serialization-json 1.7.3, kotlinx-coroutines 1.9.0, JUnit Jupiter 5.11.3. The Coder may bump a version only if CI proves the pin broken, and must record why in the commit message.
+  - A `buildscript { repositories { google { <same content filter> }; mavenCentral() }; dependencies { if (<:app included>) classpath("com.android.tools.build:gradle:$AGP") } }` block. The buildscript classpath needs its **own** `repositories` (settings-level repositories do not apply to it); `google()` is added only when `:app` is included. This puts AGP and KGP in the same root classloader, and `:app` applies `com.android.application` / `org.jetbrains.kotlin.android` **without versions**.
+- Versions (pin in `libs.versions.toml`): Kotlin **2.0.21**, AGP **8.7.3**, Gradle wrapper **8.14.3**, Compose BOM **2024.12.01**, activity-compose 1.9.3, navigation-compose 2.8.5, lifecycle 2.8.7, androidx core-ktx 1.13.1 (for `ServiceCompat`), kotlinx-serialization-json 1.7.3, kotlinx-coroutines 1.9.0, JUnit Jupiter 5.11.3. The Coder may bump a version only if CI proves the pin broken, and must record why in the commit message.
 - JVM target: `compilerOptions.jvmTarget = JVM_17` and Java `sourceCompatibility/targetCompatibility = 17` for both modules. **Do not** use `jvmToolchain(17)`: the sandbox has only JDK 21 and toolchain download is not guaranteed.
 - Android: `compileSdk 35`, `targetSdk 35`, `minSdk 30`. R8 on for release (`isMinifyEnabled = true`) with keep rules for kotlinx.serialization models.
 
@@ -169,7 +173,9 @@ Top level: `schemaVersion`, `emulatorId`, `name`, `systems[]`, `supportLevel` (`
   - Reference emulators also have `uiPath` and `uiValue`.
 - `gameSpecific[]`: `gameId` or `gameIdPrefix`, `title`, `appliedBy` (`emulator|app`), optional `condition`, `note`, and `values[]` (each with `source`). v1 only **displays** these, and warns when a user edit would override one.
 
-Evidence badge shown in the UI: "Thor-tested" (`thor`), "Odin 2 (same chip)" (`odin2`), "SD 8 Gen 2 general" (`sd8g2-general`), "Starting guess" (`inferred`). Honesty matters more than looks: never show "tested" for `inferred`.
+Evidence badge shown in the UI: "Thor-tested" (`thor`), "Odin 2 (same chip)" (`odin2`), "SD 8 Gen 2 general" (`sd8g2-general`), "Starting guess (unverified)" (`inferred`). Honesty matters more than looks: never show "tested" for `inferred`.
+
+**Evidence rule:** a preset's `evidence` can never be stronger than its weakest value. Any value with `"source": "inferred"` makes the whole preset `inferred` (unit test). Because the community guide sites were unreachable during research, every shipped preset is currently `inferred`.
 
 ## 6. ROM scanning and game-ID detection (`:core/scan`)
 
@@ -335,13 +341,13 @@ The app **cannot** read another app's FPS without root. A test session combines 
 
 ### 9.2 During the session
 
-- `TestSessionService` (foreground, specialUse) starts **before** the emulator launch and records a start snapshot. It then samples every **2 s**:
+- `TestSessionService` (foreground, specialUse) starts **before** the emulator launch and records a start snapshot. It calls `ServiceCompat.startForeground` and passes `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` only on API 34+ (the Thor runs Android 13 / API 33). `POST_NOTIFICATIONS` is requested at runtime before the first test; sampling works even if it is denied (the notification is then simply hidden). It then samples every **2 s**:
   - `BATTERY_PROPERTY_CURRENT_NOW` (µA)
   - `EXTRA_VOLTAGE` (mV, sticky intent)
   - `EXTRA_TEMPERATURE` (tenths of °C)
   - `BATTERY_PROPERTY_CAPACITY` (%)
   - `PowerManager.currentThermalStatus` (0-6)
-  - `getThermalHeadroom(0)`, at most once per 2 s (the API returns NaN if polled faster than about 1 s)
+  - ~~`getThermalHeadroom(0)`~~ (deferred to after v0.1, §17)
 - Samples are kept in memory and flushed to disk every 30 s.
 - **Current normalization** (`:core/bench`), because OEMs disagree on units and sign:
   - Docs define positive = charging and negative = discharging. When unplugged, use `abs(value)`.
@@ -362,7 +368,7 @@ The app **cannot** read another app's FPS without root. A test session combines 
 
 ### 9.4 Derived metrics (`SessionMetrics`)
 
-avgW and p95W (post-warm-up), peakW, energyWh, estimated runtime h = `22.2 Wh / avgW` (6000 mAh × 3.7 V; the 3.7 V nominal voltage is inferred, not sourced, so label the result "estimate"), battery temp start/max/delta, worst thermal status, min headroom, fpsPerWatt = avgFps / avgW, speedRatio = avgFps / targetFps.
+avgW and p95W (post-warm-up), peakW, energyWh (whole session), estimated runtime h = `22.2 Wh / avgW` (6000 mAh × 3.7 V; the 3.7 V nominal voltage is inferred, not sourced, so label the result "estimate"), battery temp start/max/delta, worst thermal status, fpsPerWatt = avgFps / avgW, speedRatio = avgFps / targetFps. (Min headroom is deferred, §17.)
 
 ### 9.5 Comparison (A/B)
 
@@ -402,7 +408,7 @@ Dark theme by default (OLED true black), with dynamic color off for a consistent
    1. Welcome: what the app does and does not do; no internet; data stays on device.
    2. ROM folders: "Add folder" (OPEN_DOCUMENT_TREE, `takePersistableUriPermission` read), shown as a list with remove. Tip: pick your ROMs root or per-system folders. The storage root cannot be picked on Android 11+.
    3. Scan: progress with per-system counts, cancellable.
-   4. Emulators: the installed emulators detected from the presets. Choose the default per system.
+   4. ~~Emulators: choose the default per system~~ (deferred, §17; the first installed FULL emulator is the default and the game screen can switch it).
    5. Config folders (optional, one card per FULL emulator). Each card has its `folderToGrant` text, a "Grant" button (OPEN_DOCUMENT_TREE with read+write persistable), and a live validation tick. For Dolphin: "In the picker, open the menu (≡) and choose Dolphin". "Skip" is always allowed.
 2. **Library.** Tabs per system with counts and search. Filters: has profile, tested, unknown ID. Each row shows title, ID chip (method icon: header/filename/manual), emulator icon and last result badge.
 3. **Game detail.**
@@ -422,8 +428,9 @@ Dark theme by default (OLED true black), with dynamic color off for a consistent
    - Reference emulators: a checklist the user ticks off.
 7. **Launch.** Applies automatically if the active revision is not applied (FULL only), then fires the intent.
 8. **Run test.** Pre-flight (§9.1), then a running screen (timer, live W and temp, "End test"), then the result form (§9.3), then a summary.
-9. **History and compare.** Sessions grouped by revision; select two to open **Compare** (§9.5). Simple horizontal bars for avgW, FPS/target and maxTemp using Compose Canvas (no chart library).
-10. **Settings.** Manage ROM folders and emulator folder grants, rescan, preferred packages and cores, export/import data (JSON via CREATE_DOCUMENT/OPEN_DOCUMENT), restore Azahar settings, "About & sources" (renders docs/SOURCES.md content bundled as an asset), licenses.
+9. **History and compare.** Sessions grouped by revision; select two to open **Compare** (§9.5), shown as a delta table with the better value highlighted (Canvas bars deferred, §17).
+10. **Settings.** Manage ROM folders and emulator folder grants, rescan, preferred packages and cores, export data (JSON via CREATE_DOCUMENT; import deferred, §17), restore Azahar settings, "About & sources" (docs/SOURCES.md bundled as an asset and shown as plain text), licenses.
+11. **Both Thor screens.** Every screen must work on the 1920x1080 landscape top display and on the 1080x1240 bottom display: scrollable content, no fixed heights, two-pane layouts only when wide.
 
 ## 12. Error handling essentials
 
@@ -489,7 +496,7 @@ Dark theme by default (OLED true black), with dynamic color off for a consistent
 9. No generic preset for Dolphin contains a `Video_Hacks` key (test).
 
 **Scanner**
-10. Unit tests with synthetic fixtures detect correct system and ID for: GC ISO, Wii ISO, WBFS, RVZ, GC CISO, GCZ (compressed and stored block 0), PSP ISO (UMD_DATA.BIN and PARAM.SFO paths), PSP CSO, PBP, PS2 ISO (BOOT2), PS1 raw BIN via CUE (MODE2/2352), 3DS CCI (title ID + product code), NDS, GBA, N64 in all 3 byte orders, NSP with `.tik`, Switch filename, `.psvita`.
+10. Unit tests with synthetic fixtures detect correct system and ID for: GC ISO, Wii ISO, WBFS, RVZ, GC CISO, PSP ISO (UMD_DATA.BIN and PARAM.SFO paths), PSP CSO, PBP, PS2 ISO (BOOT2), PS1 raw BIN via CUE (MODE2/2352), 3DS CCI (title ID + product code), NDS, GBA, N64 in all 3 byte orders, Switch filename, `.psvita`. (GCZ decoding and NSP `.tik` parsing are deferred, §17; GCZ files fall back to filename IDs.)
 11. PSP CSO vs GC CISO disambiguation is tested (same magic).
 12. The filename fallback regexes are tested with at least 3 positive and 2 negative cases each.
 13. Probes never read more than 256 KiB (+64 dir sectors). A counting `ByteSource` test asserts this.
@@ -504,7 +511,7 @@ Dark theme by default (OLED true black), with dynamic color off for a consistent
 20. Writers are pure functions of `(existingText, values)`, with no I/O in `:core`.
 
 **Launch**
-21. `LaunchPlanner` tests for all 13 emulators produce the exact component/action/extras from the JSON. `{romPath}` conversion is tested for `primary:` and `XXXX-XXXX:` ids. An unsupported id yields a typed error.
+21. `LaunchPlanner` tests compare against **hand-written** expected intents (component, action, categories, data, extras, flags) for Dolphin, PPSSPP, Eden, RetroArch and NetherSX2, and check that every `(package, activity)` target of all 13 emulators resolves with no leftover placeholders. `{romPath}` conversion is tested for `primary:` and `XXXX-XXXX:` ids. An unsupported id yields a typed error.
 22. Eden launch uses action `dev.eden.eden_emulator.LAUNCH_WITH_CUSTOM_CONFIG` with extras `title_id` and `custom_settings`, and falls back to VIEW when there is no title ID.
 
 **Bench**
@@ -518,15 +525,33 @@ Dark theme by default (OLED true black), with dynamic color off for a consistent
 28. Gamepad: every screen is fully operable with D-pad + A/B.
 29. No UI text claims "tested on Thor" for presets whose evidence is `inferred`.
 
+**Added at Manager checkpoint 1**
+30. A `:core` user-journey test: a fake lister with a synthetic PSP ISO and a Dolphin ISO; IDs detected; baseline applied; one user edit; rev 2 saved; writer output matches a golden file; `LaunchPlanner` intent matches.
+31. Evidence rule enforced by a unit test (§5).
+32. Reference emulators support manual revisions (§2) and never write files.
+33. The UI works on both Thor screens (§11.11).
+
 ## 16. Uncertainties to verify on a real Thor (Manager's device checklist)
 
 1. **URI delegation.** Can a SAF document URI from our tree grant be delegated with `FLAG_GRANT_READ_URI_PERMISSION` to Dolphin, PPSSPP and Azahar? If it cannot, the hint in §8.6 applies; ES-DE notes most emulators need their own folder grant anyway.
 2. **Dolphin picker.** Dolphin's DocumentsProvider root may not appear in the tree picker on the Thor's Android 13 build.
 3. **Eden prompts.** Eden's `LAUNCH_WITH_CUSTOM_CONFIG` path requires Eden's own game list to contain the title. The confirmation and overwrite prompts are expected, not bugs.
 4. **Azahar settings reload.** Azahar re-reads config.ini on each EmulationActivity creation (`loadSettings()`), but a still-running process might keep native settings. If the first apply shows stale values, instruct the user to swipe Azahar away first.
-5. **Azahar layout values.** `secondary_display_layout = 4` (Opposite of primary) needs Azahar 2126.0 or later; use 2 on older builds. Detect via versionName if the format is parseable; otherwise let the user pick.
+5. **Azahar layout values.** `secondary_display_layout = 4` (Opposite of primary) needs Azahar 2126.0 or later; use 2 on older builds. v0.1 lets the user pick 4 or 2 in the Tweak screen (version parsing deferred, §17).
 6. **RetroArch override location.** On the retroarch.com build, overrides live in `/storage/emulated/0/RetroArch/config` only if RetroArch can write shared storage; otherwise they are in Android/data and need export plus manual copy.
 7. **melonDS action.** MelonDualDS's action string is `me.magnum.melondualds.LAUNCH_ROM` or `me.magnum.melonds.LAUNCH_ROM`; try both.
 8. **Current sensor.** Check the Thor's `CURRENT_NOW` unit and sign; the heuristic in §9.2 should be confirmed with one plugged/unplugged reading.
 9. **Switch rights ID.** The NSP `.tik` → title ID rule is a community convention and was not verified from fetched source.
 10. **Community-derived values.** All community-derived numeric choices (Dolphin 3x, PPSSPP 4x, NetherSX2 3x) come from search snippets of blocked sites. They are marked `inferred` and must be validated with the app's own test sessions.
+
+## 17. Deferred to after v0.1 (Manager checkpoint 1)
+
+Listed as "Planned" in the README; not required by §15:
+
+- GCZ decoding (files are recognized; IDs come from the filename) and NSP `.tik` title IDs (filename IDs only).
+- A rendered in-app SOURCES.md viewer (v0.1 shows the bundled text as plain text).
+- Data import (export stays).
+- Canvas charts in Compare (v0.1 shows a delta table).
+- Thermal headroom sampling and "min headroom".
+- Azahar versionName parsing for the layout value (the user picks 4 or 2).
+- The onboarding "default emulator per system" step.
