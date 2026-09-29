@@ -31,7 +31,7 @@ class FolderActions(private val c: AppContainer) {
 
     suspend fun removeRomFolder(treeUri: String) = withContext(Dispatchers.IO) {
         c.settings.update { s -> s.copy(romFolders = s.romFolders.filterNot { it.treeUri == treeUri }) }
-        c.saf.release(treeUri)
+        releaseIfUnused(treeUri)
         c.scanner.dropFolder(treeUri)
     }
 
@@ -41,9 +41,7 @@ class FolderActions(private val c: AppContainer) {
             val grant = c.saf.grantFor(uri)
             val old = c.settings.get().emulatorFolders[def.emulatorId]
             c.settings.update { s -> s.copy(emulatorFolders = s.emulatorFolders + (def.emulatorId to grant)) }
-            if (old != null && old.treeUri != grant.treeUri && c.settings.get().romFolders.none { it.treeUri == old.treeUri }) {
-                c.saf.release(old.treeUri)
-            }
+            if (old != null && old.treeUri != grant.treeUri) releaseIfUnused(old.treeUri)
             status(def)
         } catch (e: SecurityException) {
             FolderStatus(false, false, "Android did not allow write access to that folder.")
@@ -57,6 +55,18 @@ class FolderActions(private val c: AppContainer) {
             ?: return@withContext FolderStatus(false, false, "Not granted")
         val problem = c.applier.folderProblem(def, grant)
         if (problem == null) FolderStatus(true, true, "Ready", grant.label) else FolderStatus(true, false, problem.message, grant.label)
+    }
+
+    /**
+     * Releases a persisted URI permission only when nothing references the tree any more: the same
+     * tree can be a ROM folder, an emulator config folder and the export folder at once.
+     */
+    suspend fun releaseIfUnused(treeUri: String) = withContext(Dispatchers.IO) {
+        val s = c.settings.get()
+        val used = s.romFolders.any { it.treeUri == treeUri } ||
+            s.emulatorFolders.values.any { it.treeUri == treeUri } ||
+            s.exportFolder?.treeUri == treeUri
+        if (!used) c.saf.release(treeUri)
     }
 
     suspend fun romFolderAccess(): Map<String, Boolean> = withContext(Dispatchers.IO) {

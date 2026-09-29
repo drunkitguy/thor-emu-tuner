@@ -1,5 +1,8 @@
 package dev.thoremutuner.app.ui.preset
 
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,7 +28,6 @@ import dev.thoremutuner.app.ui.common.ScreenScaffold
 import dev.thoremutuner.app.ui.common.SectionCard
 import dev.thoremutuner.app.ui.common.Tag
 import dev.thoremutuner.app.ui.common.ThorButton
-import dev.thoremutuner.app.ui.common.initialFocus
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.ui.theme.WarnColor
 import dev.thoremutuner.app.vm.BaselineViewModel
@@ -40,12 +42,14 @@ fun BaselineScreen(container: AppContainer, key: String, emulatorId: String, onB
     val ui by vm.ui.collectAsStateWithLifecycle()
     LaunchedEffect(ui.saved) { if (ui.saved) onBack() }
     val def = ui.def
-    ScreenScaffold("Choose baseline" + (def?.let { " · ${it.name}" } ?: ""), onBack = onBack) { pad ->
+    val listState = rememberLazyListState()
+    val firstFocus = rememberInitialFocus(ready = def != null)
+    ScreenScaffold("Choose baseline" + (def?.let { " · ${it.name}" } ?: ""), onBack = onBack, scrollState = listState) { pad ->
         if (def == null) {
             EmptyState("Unknown emulator")
             return@ScreenScaffold
         }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Text(
                     "Presets are starting points. Badges show how strong the evidence is; \"Starting guess\" means nobody has verified it on a Thor yet, so run a test session.",
@@ -53,7 +57,7 @@ fun BaselineScreen(container: AppContainer, key: String, emulatorId: String, onB
                 )
             }
             itemsIndexed(def.presets) { i, p ->
-                PresetCard(def, p, current = p.id == ui.currentPresetId, first = i == 0, onUse = { vm.use(p) })
+                PresetCard(def, p, current = p.id == ui.currentPresetId, useModifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier, onUse = { vm.use(p) })
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
@@ -61,7 +65,7 @@ fun BaselineScreen(container: AppContainer, key: String, emulatorId: String, onB
 }
 
 @Composable
-private fun PresetCard(def: EmulatorDef, preset: PresetDef, current: Boolean, first: Boolean, onUse: () -> Unit) {
+private fun PresetCard(def: EmulatorDef, preset: PresetDef, current: Boolean, useModifier: Modifier, onUse: () -> Unit) {
     val evidence = PresetResolver.effectiveEvidence(preset)
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -93,6 +97,6 @@ private fun PresetCard(def: EmulatorDef, preset: PresetDef, current: Boolean, fi
                 )
             }
         }
-        ThorButton("Use", onUse, modifier = if (first) Modifier.initialFocus() else Modifier)
+        ThorButton("Use", onUse, modifier = useModifier)
     }
 }

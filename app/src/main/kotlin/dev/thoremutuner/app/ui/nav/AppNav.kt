@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -17,6 +19,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.thoremutuner.app.AppContainer
+import dev.thoremutuner.core.store.StorageCheck
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.dp
 import dev.thoremutuner.app.ui.apply.ApplyScreen
 import dev.thoremutuner.app.ui.game.GameScreen
 import dev.thoremutuner.app.ui.history.CompareScreen
@@ -53,7 +64,18 @@ private val emuArg = navArgument("emu") { type = NavType.StringType }
 @Composable
 fun AppNav(container: AppContainer) {
     val settings by container.settings.flow.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { container.settings.get() }
+    var newerFiles by remember { mutableStateOf<List<String>?>(null) }
+    LaunchedEffect(Unit) {
+        // Files written by a newer app version must not be read or overwritten: show an error instead.
+        val newer = withContext(Dispatchers.IO) { StorageCheck.newerSchemaFiles(container.store) }
+        newerFiles = newer
+        if (newer.isEmpty()) container.settings.get()
+    }
+    val problem = newerFiles
+    if (problem != null && problem.isNotEmpty()) {
+        NewerDataScreen(problem)
+        return
+    }
     val loaded = settings
     if (loaded == null) {
         Box(Modifier.fillMaxSize().background(Color.Black))
@@ -65,9 +87,17 @@ fun AppNav(container: AppContainer) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         NavHost(navController = nav, startDestination = start) {
             composable(Routes.ONBOARDING) {
-                OnboardingScreen(container, onDone = {
-                    nav.navigate(Routes.LIBRARY) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
-                })
+                // Re-run from Settings: the library stays underneath, so "done" and "back" return to it.
+                val canExit = nav.previousBackStackEntry != null
+                OnboardingScreen(
+                    container,
+                    onDone = {
+                        if (!nav.popBackStack(Routes.LIBRARY, inclusive = false)) {
+                            nav.navigate(Routes.LIBRARY) { popUpTo(Routes.ONBOARDING) { inclusive = true } }
+                        }
+                    },
+                    onExit = if (canExit) ({ nav.popBackStack() }) else null,
+                )
             }
             composable(Routes.LIBRARY) {
                 LibraryScreen(
@@ -127,10 +157,26 @@ fun AppNav(container: AppContainer) {
                     container,
                     onBack = { nav.popBackStack() },
                     openAbout = { nav.navigate(Routes.ABOUT) },
-                    rerunOnboarding = { nav.navigate(Routes.ONBOARDING) { popUpTo(Routes.LIBRARY) { inclusive = true } } },
+                    rerunOnboarding = { nav.navigate(Routes.ONBOARDING) },
                 )
             }
             composable(Routes.ABOUT) { AboutScreen(container, onBack = { nav.popBackStack() }) }
         }
+    }
+}
+
+/** Shown instead of the app when stored data comes from a newer version (never overwrite it). */
+@Composable
+private fun NewerDataScreen(files: List<String>) {
+    Column(
+        Modifier.fillMaxSize().background(Color.Black).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Update Thor Emu Tuner", style = MaterialTheme.typography.titleLarge, color = Color.White)
+        Text(
+            "Some of your data was saved by a newer version of this app (${files.size} file(s)). " +
+                "To avoid damaging it, this version will not open it. Install the latest version from the Releases page.",
+            color = Color.White,
+        )
     }
 }

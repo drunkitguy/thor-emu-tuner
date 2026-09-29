@@ -1,5 +1,8 @@
 package dev.thoremutuner.app.ui.history
 
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -60,24 +63,27 @@ fun HistoryScreen(container: AppContainer, key: String, onBack: () -> Unit, open
     val vm = viewModel(key = "history-$key") { HistoryViewModel(container, key) }
     val ui by vm.ui.collectAsStateWithLifecycle()
     var deleting by remember { mutableStateOf<TestSession?>(null) }
+    val listState = rememberLazyListState()
+    val firstId = ui.groups.firstOrNull()?.second?.firstOrNull()?.id
+    val firstFocus = rememberInitialFocus(ready = ui.loaded && firstId != null)
     ScreenScaffold(
         "History" + (ui.game?.let { " · ${it.title}" } ?: ""),
         onBack = onBack,
+        scrollState = listState,
         actions = {
             ThorButton("Compare", { if (ui.selected.size == 2) openCompare(ui.selected[0], ui.selected[1]) }, enabled = ui.selected.size == 2)
         },
     ) { pad ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item { Text("Select two sessions to compare them A/B.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (ui.loaded && ui.groups.isEmpty()) item { EmptyState("No test sessions yet. Run a test from the game screen.") }
-            val firstId = ui.groups.firstOrNull()?.second?.firstOrNull()?.id
             ui.groups.forEach { (rev, sessions) ->
                 item { Text("Revision $rev", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
                 items(sessions, key = { it.id }) { s ->
                     SessionRow(
                         s, ui.emulatorNames[s.emulatorId] ?: s.emulatorId, selected = s.id in ui.selected,
                         onToggle = { vm.toggle(s.id) }, onDelete = { deleting = s },
-                        modifier = if (s.id == firstId) Modifier.initialFocus() else Modifier,
+                        modifier = if (s.id == firstId) Modifier.focusRequester(firstFocus) else Modifier,
                     )
                 }
             }
@@ -106,7 +112,7 @@ private fun SessionRow(s: TestSession, emulator: String, selected: Boolean, onTo
                     val r = s.result
                     val m = s.metrics
                     Text(
-                        "${Fmt.num(r?.avgFps)}/${r?.targetFps ?: "-"} fps · ${Fmt.watts(m?.avgW)} · max ${Fmt.celsius(m?.tempMaxC)} · ${r?.outcome?.label ?: "no result"}",
+                        "${Fmt.num(r?.avgFps)}/${r?.targetFps?.let { dev.thoremutuner.core.bench.TargetFps.label(it) } ?: "-"} fps · ${Fmt.watts(m?.avgW)} · max ${Fmt.celsius(m?.tempMaxC)} · ${r?.outcome?.label ?: "no result"}",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text("$emulator ${s.emulatorVersion ?: ""} · ${s.perfMode.ifEmpty { "mode ?" }} / ${s.fanMode.ifEmpty { "fan ?" }}",
@@ -124,7 +130,8 @@ private fun SessionRow(s: TestSession, emulator: String, selected: Boolean, onTo
 fun CompareScreen(container: AppContainer, key: String, a: String, b: String, onBack: () -> Unit) {
     val vm = viewModel(key = "compare-$key-$a-$b") { CompareViewModel(container, key, a, b) }
     val ui by vm.ui.collectAsStateWithLifecycle()
-    ScreenScaffold("Compare A/B", onBack = onBack) { pad ->
+    val scroll = rememberScrollState()
+    ScreenScaffold("Compare A/B", onBack = onBack, scrollState = scroll) { pad ->
         val result = ui.result
         val sa = ui.a
         val sb = ui.b
@@ -132,7 +139,7 @@ fun CompareScreen(container: AppContainer, key: String, a: String, b: String, on
             if (ui.loaded) EmptyState("Pick two sessions of this game in History.")
             return@ScreenScaffold
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(pad), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(pad), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (result.notComparableReasons.isNotEmpty()) {
                 Banner("Not comparable: " + result.notComparableReasons.joinToString("; "), BannerKind.WARN)
             }

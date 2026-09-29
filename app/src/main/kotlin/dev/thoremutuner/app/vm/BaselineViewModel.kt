@@ -27,12 +27,14 @@ class BaselineViewModel(private val c: AppContainer, private val key: String, em
     }
 
     /** "Use" creates a new revision with the note "Baseline: <preset>". */
-    fun use(preset: PresetDef) = viewModelScope.launch {
-        val d = def ?: return@launch
-        val values = PresetResolver.resolve(d, preset.id)
-        c.profiles.update(key) {
-            ProfileService.addRevision(it, key, d.emulatorId, preset.id, values, "Baseline: ${preset.name}", System.currentTimeMillis()).first
+    fun use(preset: PresetDef) {
+        viewModelScope.launch {
+            val d = def ?: return@launch
+            val values = PresetResolver.resolve(d, preset.id)
+            c.profiles.update(key) {
+                ProfileService.addRevision(it, key, d.emulatorId, preset.id, values, "Baseline: ${preset.name}", System.currentTimeMillis()).first
+            }
+            _ui.value = _ui.value.copy(saved = true, currentPresetId = preset.id)
         }
-        _ui.value = _ui.value.copy(saved = true, currentPresetId = preset.id)
     }
 }

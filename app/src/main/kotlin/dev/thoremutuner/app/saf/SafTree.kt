@@ -137,7 +137,9 @@ class SafAccess(private val resolver: ContentResolver) {
         require(parts.isNotEmpty() && parts.none { it == ".." }) { "invalid path" }
         var parentId = grant.rootDocumentId
         for (dir in parts.dropLast(1)) {
-            val existing = children(grant.treeUri, parentId).firstOrNull { it.displayName == dir && it.isDirectory }
+            val kids = children(grant.treeUri, parentId).filter { it.isDirectory }
+            // Exact name first, then case-insensitive (providers on FAT/exFAT SD cards are case-insensitive).
+            val existing = kids.firstOrNull { it.displayName == dir } ?: kids.firstOrNull { it.displayName.equals(dir, ignoreCase = true) }
             parentId = existing?.documentId ?: run {
                 val created = DocumentsContract.createDocument(resolver, documentUri(grant.treeUri, parentId), Document.MIME_TYPE_DIR, dir)
                     ?: throw IOException("Could not create folder $dir")
@@ -145,7 +147,8 @@ class SafAccess(private val resolver: ContentResolver) {
             }
         }
         val name = parts.last()
-        val existing = children(grant.treeUri, parentId).firstOrNull { it.displayName == name && !it.isDirectory }
+        val files = children(grant.treeUri, parentId).filter { !it.isDirectory }
+        val existing = files.firstOrNull { it.displayName == name } ?: files.firstOrNull { it.displayName.equals(name, ignoreCase = true) }
         val uri = if (existing != null) {
             documentUri(grant.treeUri, existing.documentId)
         } else {

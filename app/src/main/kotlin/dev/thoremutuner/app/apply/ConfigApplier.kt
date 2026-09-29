@@ -173,7 +173,7 @@ class ConfigApplier(
             // 6. Record.
             newAzaharState?.let { azahar.save(it.state) }
             val version = installed.resolve(def, settings.preferredPackage[def.emulatorId])?.versionName
-            profiles.update(game.key) { ProfileService.markApplied(it, def.emulatorId, rev.rev, now, version) }
+            profiles.update(game.key) { ProfileService.markApplied(it, def.emulatorId, rev.rev, now, version, path) }
             ApplyOutcome.Written(path, render, stamp)
         } catch (e: PermissionLostException) {
             ApplyOutcome.Blocked(ApplyBlock.PERMISSION_LOST, e.message ?: "Folder access was lost")
@@ -254,13 +254,33 @@ class ConfigApplier(
         }
     }
 
-    /** Whether launching should apply first (FULL, folder-based emulators only). */
-    suspend fun needsApply(game: Game, def: EmulatorDef, revision: ProfileRevision?): Boolean {
-        if (revision == null || ConfigWriters.forEmulator(def) == null) return false
-        return when (def.configTarget.mode) {
+    /**
+     * Whether launching should apply first (FULL, folder-based emulators only): never applied, or
+     * applied to a different target path (e.g. a changed RetroArch core or a corrected game ID).
+     */
+    suspend fun needsApply(game: Game, def: EmulatorDef, revision: ProfileRevision?): Boolean = withContext(Dispatchers.IO) {
+        if (revision == null || ConfigWriters.forEmulator(def) == null) return@withContext false
+        when (def.configTarget.mode) {
             ConfigMode.INTENT_INLINE_INI, ConfigMode.MANUAL -> false
             ConfigMode.GLOBAL_INI_MERGE -> !azahar.get().isApplied(game.key, revision.rev)
-            else -> revision.appliedAt == null
+            else -> {
+                if (revision.appliedAt == null) return@withContext true
+                val settings = settingsRepo.get()
+                val current = runCatching {
+                    ConfigWriters.relativePath(def, ApplyPlanner.context(def, game, revision, settings.preferredCore[game.system.id]))
+                }.getOrNull()
+                revision.appliedPath != null && current != null && current != revision.appliedPath
+            }
         }
+    }
+
+    /**
+     * A 3DS game without a profile must not run with another game's swapped-in Azahar keys:
+     * true when such keys are currently active.
+     */
+    suspend fun azaharHasForeignKeys(game: Game, def: EmulatorDef, revision: ProfileRevision?): Boolean {
+        if (def.configTarget.mode != ConfigMode.GLOBAL_INI_MERGE || revision != null) return false
+        val state = azahar.get()
+        return state.originals.isNotEmpty() && state.lastAppliedGameKey != null && state.lastAppliedGameKey != game.key
     }
 }

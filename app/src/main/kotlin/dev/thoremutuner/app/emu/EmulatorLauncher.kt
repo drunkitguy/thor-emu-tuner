@@ -1,5 +1,7 @@
 package dev.thoremutuner.app.emu
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -43,11 +45,50 @@ class EmulatorLauncher(
         settings: AppSettings,
         autoApply: Boolean = true,
     ): LaunchResult {
+        // Everything before startActivity (PackageManager queries, SAF checks, file reads/writes)
+        // runs off the main thread; only the activity start itself happens on the caller's thread.
+        val prepared = withContext(Dispatchers.IO) { prepare(game, def, revision, settings, autoApply) }
+        val (plan, target, warnings) = when (prepared) {
+            is Prepared.Fail -> return prepared.result
+            is Prepared.Ok -> Triple(prepared.plan, prepared.target, prepared.warnings)
+        }
+        val romUri = saf.documentUri(game.treeUri, game.documentId)
+        val inline = def.configTarget.mode == ConfigMode.INTENT_INLINE_INI
+        for (attempt in plan.attempts) {
+            val intent = IntentFactory.build(attempt.spec)
+            try {
+                runCatching { context.grantUriPermission(attempt.spec.packageName, romUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                context.startActivity(intent)
+                if (!attempt.appliesSettings && inline && revision != null) {
+                    warnings += "${def.name} was started without the tuned settings."
+                }
+                return LaunchResult.Started(target.target.packageName, target.versionName, warnings)
+            } catch (e: ActivityNotFoundException) {
+                continue
+            } catch (e: SecurityException) {
+                continue
+            }
+        }
+        return LaunchResult.Failed("Emulator not installed or its launch activity changed.", target.target.packageName)
+    }
+
+    private sealed class Prepared {
+        data class Ok(val plan: LaunchPlan.Ready, val target: InstalledTarget, val warnings: MutableList<String>) : Prepared()
+        data class Fail(val result: LaunchResult) : Prepared()
+    }
+
+    private suspend fun prepare(
+        game: Game,
+        def: EmulatorDef,
+        revision: ProfileRevision?,
+        settings: AppSettings,
+        autoApply: Boolean,
+    ): Prepared {
         if (!saf.hasPermission(game.treeUri, write = false)) {
-            return LaunchResult.Failed("Access to this game's ROM folder was lost. Add the folder again in Settings.")
+            return Prepared.Fail(LaunchResult.Failed("Access to this game's ROM folder was lost. Add the folder again in Settings."))
         }
         val target = installed.resolve(def, settings.preferredPackage[def.emulatorId])
-            ?: return LaunchResult.Failed("${def.name} is not installed (or its launch activity changed).")
+            ?: return Prepared.Fail(LaunchResult.Failed("${def.name} is not installed (or its launch activity changed)."))
         val warnings = mutableListOf<String>()
 
         if (autoApply && applier.needsApply(game, def, revision)) {
@@ -55,6 +96,15 @@ class EmulatorLauncher(
                 is ApplyOutcome.Written -> Unit
                 is ApplyOutcome.Blocked -> warnings += "Settings not applied: ${r.message}"
                 is ApplyOutcome.Failed -> warnings += "Settings not applied: ${r.message}"
+                is ApplyOutcome.Exported -> Unit
+            }
+        }
+        if (autoApply && applier.azaharHasForeignKeys(game, def, revision)) {
+            // No profile for this 3DS game: put the user's own Azahar settings back first.
+            when (val r = applier.restoreAzahar(def)) {
+                is ApplyOutcome.Written -> warnings += "Restored your own Azahar settings (this game has no profile)."
+                is ApplyOutcome.Blocked -> warnings += "Another game's Azahar settings are still active: ${r.message}"
+                is ApplyOutcome.Failed -> warnings += "Another game's Azahar settings are still active: ${r.message}"
                 is ApplyOutcome.Exported -> Unit
             }
         }
@@ -76,26 +126,11 @@ class EmulatorLauncher(
             coreFile = core?.coreFile,
         )
         val plan = when (val p = LaunchPlanner.plan(def, target.target, inputs)) {
-            is LaunchPlan.Failed -> return LaunchResult.Failed(p.error.message, target.target.packageName)
+            is LaunchPlan.Failed -> return Prepared.Fail(LaunchResult.Failed(p.error.message, target.target.packageName))
             is LaunchPlan.Ready -> p
         }
         warnings += plan.warnings
-        for (attempt in plan.attempts) {
-            val intent = IntentFactory.build(attempt.spec)
-            try {
-                runCatching { context.grantUriPermission(attempt.spec.packageName, romUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                context.startActivity(intent)
-                if (!attempt.appliesSettings && inline && revision != null) {
-                    warnings += "${def.name} was started without the tuned settings."
-                }
-                return LaunchResult.Started(target.target.packageName, target.versionName, warnings)
-            } catch (e: ActivityNotFoundException) {
-                continue
-            } catch (e: SecurityException) {
-                continue
-            }
-        }
-        return LaunchResult.Failed("Emulator not installed or its launch activity changed.", target.target.packageName)
+        return Prepared.Ok(plan, target, warnings)
     }
 
     companion object {

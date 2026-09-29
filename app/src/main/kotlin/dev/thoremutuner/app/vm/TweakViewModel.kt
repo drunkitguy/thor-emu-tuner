@@ -35,6 +35,8 @@ data class TweakUi(
     val manual: List<ManualRow> = emptyList(),
     val saved: Boolean = false,
     val saveError: String? = null,
+    /** Unsaved edits exist (leaving asks "Discard unsaved changes?"). */
+    val dirty: Boolean = false,
 ) {
     fun value(s: SettingDef): String? = values.firstOrNull { it.section == s.section && it.key == s.key }?.value
     fun baselineValue(s: SettingDef): String? = baseline.firstOrNull { it.section == s.section && it.key == s.key }?.value
@@ -86,6 +88,7 @@ class TweakViewModel(private val c: AppContainer, private val key: String, emula
                     warnings = if (check.warning != null) cur.warnings + (ref to check.warning!!) else cur.warnings - ref,
                     editedRefs = cur.editedRefs + ref,
                     saved = false,
+                    dirty = true,
                 ).withConflicts()
             }
             is ValueCheck.Invalid -> _ui.value = cur.copy(errors = cur.errors + (ref to check.message))
@@ -136,6 +139,7 @@ class TweakViewModel(private val c: AppContainer, private val key: String, emula
         _ui.value = cur.copy(
             values = PresetResolver.remove(cur.values, s.section, s.key),
             errors = cur.errors - ref, warnings = cur.warnings - ref, editedRefs = cur.editedRefs - ref, saved = false,
+            dirty = true,
         ).withConflicts()
     }
 
@@ -148,30 +152,32 @@ class TweakViewModel(private val c: AppContainer, private val key: String, emula
     fun upsertManual(row: ManualRow) {
         val cur = _ui.value
         val rows = if (cur.manual.any { it.id == row.id }) cur.manual.map { if (it.id == row.id) row else it } else cur.manual + row.copy(id = nextRowId++)
-        _ui.value = cur.copy(manual = rows, saved = false)
+        _ui.value = cur.copy(manual = rows, saved = false, dirty = true)
     }
 
-    fun removeManual(id: Int) { _ui.value = _ui.value.copy(manual = _ui.value.manual.filterNot { it.id == id }, saved = false) }
+    fun removeManual(id: Int) { _ui.value = _ui.value.copy(manual = _ui.value.manual.filterNot { it.id == id }, saved = false, dirty = true) }
 
     fun newManualRow(): ManualRow = ManualRow(-1, "", "", "")
 
     // ---------------------------------------------------------------- save
 
-    fun save(note: String) = viewModelScope.launch {
-        val d = def ?: return@launch
-        val cur = _ui.value
-        if (cur.errors.isNotEmpty()) {
-            _ui.value = cur.copy(saveError = "Fix the highlighted values first.")
-            return@launch
+    fun save(note: String) {
+        viewModelScope.launch {
+            val d = def ?: return@launch
+            val cur = _ui.value
+            if (cur.errors.isNotEmpty()) {
+                _ui.value = cur.copy(saveError = "Fix the highlighted values first.")
+                return@launch
+            }
+            val values = if (d.isFull) cur.values else cur.manual
+                .filter { it.label.isNotBlank() && it.value.isNotBlank() }
+                .map { SettingValue(it.path.trim(), it.label.trim(), it.value.trim()) }
+            val changed = PresetResolver.changedRefs(cur.baseline, values)
+            val userRefs = cur.priorUserRefs + cur.editedRefs.filter { it in changed }
+            c.profiles.update(key) {
+                ProfileService.addRevision(it, key, d.emulatorId, cur.basePresetId, values, note.ifBlank { "Tweaked" }, System.currentTimeMillis(), userRefs).first
+            }
+            _ui.value = cur.copy(saved = true, saveError = null, dirty = false)
         }
-        val values = if (d.isFull) cur.values else cur.manual
-            .filter { it.label.isNotBlank() && it.value.isNotBlank() }
-            .map { SettingValue(it.path.trim(), it.label.trim(), it.value.trim()) }
-        val changed = PresetResolver.changedRefs(cur.baseline, values)
-        val userRefs = cur.priorUserRefs + cur.editedRefs.filter { it in changed }
-        c.profiles.update(key) {
-            ProfileService.addRevision(it, key, d.emulatorId, cur.basePresetId, values, note.ifBlank { "Tweaked" }, System.currentTimeMillis(), userRefs).first
-        }
-        _ui.value = cur.copy(saved = true, saveError = null)
     }
 }

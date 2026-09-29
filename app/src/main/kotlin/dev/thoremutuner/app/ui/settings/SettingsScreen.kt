@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -22,12 +24,15 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -43,7 +48,9 @@ import dev.thoremutuner.app.ui.common.LabeledValue
 import dev.thoremutuner.app.ui.common.ScreenScaffold
 import dev.thoremutuner.app.ui.common.SectionCard
 import dev.thoremutuner.app.ui.common.ThorButton
-import dev.thoremutuner.app.ui.common.initialFocus
+import dev.thoremutuner.app.ui.common.focusRing
+import dev.thoremutuner.app.ui.common.launchSafely
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
 import dev.thoremutuner.app.ui.theme.MonoStyle
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.vm.SettingsViewModel
@@ -63,6 +70,9 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, openAbout: () ->
     var corePick by remember { mutableStateOf<String?>(null) }
     var confirmRestore by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh() }
+    val context = LocalContext.current
+    val listState = rememberLazyListState()
+    val firstFocus = rememberInitialFocus()
 
     val romPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) vm.addRomFolder(uri) }
     val emuPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -72,8 +82,8 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, openAbout: () ->
     }
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> if (uri != null) vm.exportData(uri) }
 
-    ScreenScaffold("Settings", onBack = onBack) { pad ->
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    ScreenScaffold("Settings", onBack = onBack, scrollState = listState) { pad ->
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             message?.let { (text, error) ->
                 item { Banner(text, if (error) BannerKind.ERROR else BannerKind.OK, actionLabel = "OK", onAction = vm::dismissMessage) }
             }
@@ -87,12 +97,12 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, openAbout: () ->
                                 Text(f.label, style = MaterialTheme.typography.titleSmall)
                                 if (romAccess[f.treeUri] == false) Text("Access lost: remove and add it again.", color = MaterialTheme.colorScheme.error)
                             }
-                            if (romAccess[f.treeUri] == false) ThorButton("Re-grant", { romPicker.launch(null) }, style = ButtonStyle.SECONDARY)
+                            if (romAccess[f.treeUri] == false) ThorButton("Re-grant", { romPicker.launchSafely(null, context) }, style = ButtonStyle.SECONDARY)
                             ThorButton("Remove", { vm.removeRomFolder(f.treeUri) }, icon = Icons.Filled.Delete, style = ButtonStyle.TEXT)
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ThorButton("Add folder", { romPicker.launch(null) }, icon = Icons.Filled.Add, modifier = Modifier.initialFocus())
+                        ThorButton("Add folder", { romPicker.launchSafely(null, context) }, icon = Icons.Filled.Add, modifier = Modifier.focusRequester(firstFocus))
                         ThorButton("Rescan all", { vm.rescan(force = true) }, icon = Icons.Filled.Refresh, style = ButtonStyle.SECONDARY)
                     }
                 }
@@ -109,7 +119,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, openAbout: () ->
                     Text(def.configTarget.folderToGrant.orEmpty(), style = MaterialTheme.typography.bodyMedium)
                     if (def.emulatorId == "dolphin") Text("In the picker, open the menu (≡) and choose Dolphin.", color = MaterialTheme.colorScheme.primary)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ThorButton(if (st?.granted == true) (if (st.ok) "Change" else "Re-grant") else "Grant", { pendingGrant = def; emuPicker.launch(null) }, style = ButtonStyle.SECONDARY)
+                        ThorButton(if (st?.granted == true) (if (st.ok) "Change" else "Re-grant") else "Grant", { pendingGrant = def; emuPicker.launchSafely(null, context) }, style = ButtonStyle.SECONDARY)
                         when {
                             st == null -> Unit
                             st.ok -> Text("✓ ${st.label ?: "Ready"}", color = OkColor)
@@ -146,7 +156,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, openAbout: () ->
             }
             item {
                 SectionCard("Data") {
-                    ThorButton("Export data (JSON)", { exportPicker.launch("thor-emu-tuner-export.json") }, icon = Icons.Filled.Share, style = ButtonStyle.SECONDARY)
+                    ThorButton("Export data (JSON)", { exportPicker.launchSafely("thor-emu-tuner-export.json", context) }, icon = Icons.Filled.Share, style = ButtonStyle.SECONDARY)
                     Text("Exports titles, IDs, profiles and test sessions. Never folder locations, file paths or device identifiers.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                     ThorButton("Restore my Azahar settings", { confirmRestore = true }, style = ButtonStyle.SECONDARY)
@@ -191,19 +201,41 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, openAbout: () ->
 @Composable
 fun AboutScreen(container: AppContainer, onBack: () -> Unit) {
     val vm = viewModel { SettingsViewModel(container) }
-    val text = remember { vm.aboutText() }
-    ScreenScaffold("About & sources", onBack = onBack) { pad ->
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(pad), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionCard("Thor Emu Tuner ${container.appVersion}", modifier = Modifier.initialFocus(), focusable = true) {
-                Text("MIT License, copyright Thor Emu Tuner contributors. Built with Kotlin, Jetpack Compose, AndroidX and kotlinx libraries (Apache License 2.0).")
-                Text("No internet permission. No analytics. Your data stays on this device unless you export it.")
-                Text("Presets are starting guesses unless their badge says otherwise; verify them with your own test sessions.")
+    val sections by vm.about.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.loadAbout() }
+    val listState = rememberLazyListState()
+    val first = rememberInitialFocus()
+    ScreenScaffold("About & sources", onBack = onBack, scrollState = listState) { pad ->
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            item {
+                SectionCard("Thor Emu Tuner ${container.appVersion}", modifier = Modifier.focusRequester(first), focusable = true) {
+                    Text("MIT License, copyright Thor Emu Tuner contributors. Third-party libraries and their licenses are listed below.")
+                    Text("No internet permission. No analytics. Your data stays on this device unless you export it.")
+                    Text("Presets are starting guesses unless their badge says otherwise; verify them with your own test sessions.")
+                }
             }
-            // One focusable card per section so the D-pad can scroll through the sources list.
-            text.split(Regex("\n(?=## )")).forEach { part ->
-                SectionCard(focusable = true) { Text(part.trim(), style = MonoStyle) }
+            sections.orEmpty().forEach { section ->
+                item { Text(section.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp)) }
+                // Focusable blocks of a few lines each, so the D-pad scrolls through long texts.
+                items(textBlocks(section.text)) { block -> FocusableText(block) }
             }
-            Spacer(Modifier.height(24.dp))
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
+}
+
+/** Splits text into paragraphs, and long paragraphs into blocks of at most [maxLines] lines. */
+fun textBlocks(text: String, maxLines: Int = 8): List<String> =
+    text.replace("\r\n", "\n").split(Regex("\n\\s*\n"))
+        .map { it.trimEnd() }.filter { it.isNotBlank() }
+        .flatMap { p -> p.lines().chunked(maxLines).map { it.joinToString("\n") } }
+
+@Composable
+fun FocusableText(text: String) {
+    val shape = RoundedCornerShape(8.dp)
+    Text(
+        text,
+        style = MonoStyle,
+        modifier = Modifier.fillMaxWidth().focusRing(shape).focusable().padding(horizontal = 8.dp, vertical = 4.dp),
+    )
 }

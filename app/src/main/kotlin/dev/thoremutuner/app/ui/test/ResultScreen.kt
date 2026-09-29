@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package dev.thoremutuner.app.ui.test
 
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +27,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.thoremutuner.core.bench.TargetFps
 import dev.thoremutuner.app.AppContainer
 import dev.thoremutuner.app.bench.LiveSession
 import dev.thoremutuner.app.bench.ThermalSampler
@@ -49,7 +54,7 @@ import dev.thoremutuner.core.bench.TestSession
 /** Running view (timer, live W/temp, End test), then the result form (PLAN 9.3), then a summary. */
 @Composable
 fun ResultScreen(container: AppContainer, onBack: () -> Unit, openHistory: (String) -> Unit) {
-    val vm = viewModel { ResultViewModel(container) }
+    val vm = viewModel { ResultViewModel(container, createSavedStateHandle()) }
     val live by vm.live.collectAsStateWithLifecycle()
     val saved by vm.saved.collectAsStateWithLifecycle()
     var confirmDiscard by remember { mutableStateOf(false) }
@@ -58,8 +63,9 @@ fun ResultScreen(container: AppContainer, onBack: () -> Unit, openHistory: (Stri
         live?.running == true -> "Test running"
         else -> "Enter results"
     }
-    ScreenScaffold(title, onBack = onBack) { pad ->
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(pad), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val scroll = rememberScrollState()
+    ScreenScaffold(title, onBack = onBack, scrollState = scroll) { pad ->
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(pad), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val s = saved
             val l = live
             when {
@@ -99,6 +105,9 @@ private fun Form(vm: ResultViewModel, l: LiveSession) {
     val form by vm.form.collectAsStateWithLifecycle()
     val errors by vm.errors.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<String?>(null) }
+    if (l.powerIncomplete) {
+        Banner("The app was closed during the test: power data is incomplete (only the samples taken before that are used).", BannerKind.WARN)
+    }
     Text("Test of ${Fmt.duration(l.elapsedSec)} recorded (${l.session.samples.size} samples). Enter what you saw in the emulator's overlay.",
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     SectionCard("Outcome") {
@@ -109,8 +118,8 @@ private fun Form(vm: ResultViewModel, l: LiveSession) {
         errors["avgFps"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         ThorButton("Enter average FPS", { editing = "avg" }, style = ButtonStyle.SECONDARY)
         Text("Target FPS")
-        ChipRow(dev.thoremutuner.core.bench.TargetFps.CHOICES + 0, form.targetFps, { if (it == 0) "Other" + (form.customTarget.takeIf { c -> c.isNotBlank() }?.let { c -> " ($c)" } ?: "") else "$it" }) { t ->
-            if (t == 0) editing = "target" else vm.update { it.copy(targetFps = t) }
+        ChipRow(TargetFps.CHOICES + 0.0, form.targetFps, { if (it == 0.0) "Other" + (form.customTarget.takeIf { c -> c.isNotBlank() }?.let { c -> " ($c)" } ?: "") else TargetFps.label(it) }) { t ->
+            if (t == 0.0) editing = "target" else vm.update { it.copy(targetFps = t) }
         }
         errors["targetFps"]?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         LabeledValue("Lowest FPS seen (optional)", form.minFps.ifEmpty { "-" })
@@ -133,7 +142,7 @@ private fun Form(vm: ResultViewModel, l: LiveSession) {
     when (editing) {
         "avg" -> NumberDialog("Average FPS", form.avgFps, { v -> vm.update { it.copy(avgFps = v) }; editing = null }) { editing = null }
         "min" -> NumberDialog("Lowest FPS", form.minFps, { v -> vm.update { it.copy(minFps = v) }; editing = null }, allowEmpty = true) { editing = null }
-        "target" -> NumberDialog("Target FPS", form.customTarget, { v -> vm.update { it.copy(targetFps = 0, customTarget = v) }; editing = null }) { editing = null }
+        "target" -> NumberDialog("Target FPS", form.customTarget, { v -> vm.update { it.copy(targetFps = 0.0, customTarget = v) }; editing = null }) { editing = null }
         "notes" -> TextInputDialog("Notes", form.notes, "Notes (max ${dev.thoremutuner.core.bench.SessionResult.MAX_NOTES} characters)",
             onConfirm = { v -> vm.update { it.copy(notes = v) }; editing = null }, onDismiss = { editing = null }, singleLine = false,
             validate = { if (it.length > dev.thoremutuner.core.bench.SessionResult.MAX_NOTES) "Too long" else null })
@@ -175,7 +184,7 @@ private fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, fir
 private fun Summary(s: TestSession, openHistory: () -> Unit) {
     val m = s.metrics
     SectionCard("Saved: rev ${s.rev} · ${s.result?.outcome?.label ?: ""}", focusable = true) {
-        LabeledValue("Average FPS / target", "${Fmt.num(s.result?.avgFps)} / ${s.result?.targetFps ?: "-"}")
+        LabeledValue("Average FPS / target", "${Fmt.num(s.result?.avgFps)} / ${s.result?.targetFps?.let { TargetFps.label(it) } ?: "-"}")
         LabeledValue("Speed", m?.speedRatio?.let { "${Fmt.num(it * 100, 0)}%" } ?: "-")
         LabeledValue("Average power", Fmt.watts(m?.avgW) + if (m?.usedCounterFallback == true) " (charge counter)" else "")
         LabeledValue("95th percentile power", Fmt.watts(m?.p95W))

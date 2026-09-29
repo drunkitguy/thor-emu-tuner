@@ -55,29 +55,31 @@ class LibraryViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { c.library.flow.collectLatest { refresh() } }
     }
 
-    fun refresh() = viewModelScope.launch {
-        val built = withContext(Dispatchers.IO) {
-            val settings = c.settings.get()
-            val games = c.library.get().games
-            val withProfiles = c.store.list("profiles").map { it.removeSuffix(".json") }.toSet()
-            val withSessions = c.store.list("sessions").map { it.removeSuffix(".json") }.toSet()
-            val rows = games.map { g ->
-                val emuId = settings.gameEmulator[g.key] ?: settings.preferredEmulator[g.system.id]
-                val emu = emuId?.let { c.presets.emulator(it) } ?: c.presets.emulatorsFor(g.system).firstOrNull()
-                val outcome = if (g.key in withSessions) {
-                    runCatching { c.sessionRepo.get(g.key).maxByOrNull { it.startedAt }?.result?.outcome }.getOrNull()
-                } else null
-                GameRow(g, emu?.name, g.key in withProfiles, outcome)
+    fun refresh() {
+        viewModelScope.launch {
+            val built = withContext(Dispatchers.IO) {
+                val settings = c.settings.get()
+                val games = c.library.get().games
+                val withProfiles = c.store.list("profiles").map { it.removeSuffix(".json") }.toSet()
+                val withSessions = c.store.list("sessions").map { it.removeSuffix(".json") }.toSet()
+                val rows = games.map { g ->
+                    val emuId = settings.gameEmulator[g.key] ?: settings.preferredEmulator[g.system.id]
+                    val emu = emuId?.let { c.presets.emulator(it) } ?: c.presets.emulatorsFor(g.system).firstOrNull()
+                    val outcome = if (g.key in withSessions) {
+                        runCatching { c.sessionRepo.get(g.key).maxByOrNull { it.startedAt }?.result?.outcome }.getOrNull()
+                    } else null
+                    GameRow(g, emu?.name, g.key in withProfiles, outcome)
+                }
+                val lost = settings.romFolders.count { !c.saf.hasPermission(it.treeUri, write = false) }
+                Triple(rows, lost, settings.romFolders.size)
             }
-            val lost = settings.romFolders.count { !c.saf.hasPermission(it.treeUri, write = false) }
-            Triple(rows, lost, settings.romFolders.size)
+            val (rows, lost, folders) = built
+            val systems = rows.groupingBy { it.game.system }.eachCount().toList().sortedBy { it.first.ordinal }
+            _ui.value = _ui.value.copy(
+                loading = false, rows = rows, systems = systems, lostFolders = lost, folderCount = folders,
+                system = _ui.value.system?.takeIf { s -> systems.any { it.first == s } },
+            )
         }
-        val (rows, lost, folders) = built
-        val systems = rows.groupingBy { it.game.system }.eachCount().toList().sortedBy { it.first.ordinal }
-        _ui.value = _ui.value.copy(
-            loading = false, rows = rows, systems = systems, lostFolders = lost, folderCount = folders,
-            system = _ui.value.system?.takeIf { s -> systems.any { it.first == s } },
-        )
     }
 
     fun setSystem(s: SystemId?) { _ui.value = _ui.value.copy(system = s) }

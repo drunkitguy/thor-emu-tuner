@@ -1,5 +1,23 @@
 package dev.thoremutuner.app.ui.common
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalFocusManager
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +39,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -108,14 +127,22 @@ fun ThorButton(
 /**
  * Screen frame: a compact top bar (the Thor's top screen is only ~360 dp tall in landscape) and a
  * width-limited content area that works on both the 1920x1080 and the 1080x1240 displays.
+ *
+ * D-pad fallback: UP/DOWN first try to move focus; if there is nothing focusable in that direction,
+ * the screen's [scrollState] scrolls by about 80% of the viewport, so read-only content below or
+ * above the last focusable element is always reachable with a gamepad.
  */
 @Composable
 fun ScreenScaffold(
     title: String,
     onBack: (() -> Unit)?,
+    scrollState: ScrollableState? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+    var viewportPx by remember { mutableIntStateOf(0) }
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(
@@ -138,12 +165,61 @@ fun ScreenScaffold(
                 )
                 actions()
             }
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .onSizeChanged { viewportPx = it.height }
+                    .onPreviewKeyEvent { e ->
+                        val down = e.key == Key.DirectionDown
+                        val up = e.key == Key.DirectionUp
+                        if (scrollState == null || (!down && !up) || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        val moved = focusManager.moveFocus(if (down) FocusDirection.Down else FocusDirection.Up)
+                        if (!moved) {
+                            val delta = viewportPx * 0.8f * (if (down) 1f else -1f)
+                            scope.launch { scrollState.animateScrollBy(delta) }
+                        }
+                        true
+                    },
+                contentAlignment = Alignment.TopCenter,
+            ) {
                 Box(Modifier.widthIn(max = 1000.dp).fillMaxSize()) {
                     content(PaddingValues(horizontal = 16.dp, vertical = 8.dp))
                 }
             }
         }
+    }
+}
+
+/**
+ * Screen-level initial focus: request focus once per screen visit (not per lazy item composition,
+ * which would steal focus back on recomposition, filter changes or scrolling). Attach the returned
+ * requester with `Modifier.focusRequester(...)` to the element that should start focused; retries
+ * for a few frames until it is laid out. [ready] delays the request until data is loaded.
+ */
+@Composable
+fun rememberInitialFocus(ready: Boolean = true): FocusRequester {
+    val requester = remember { FocusRequester() }
+    var done by remember { mutableStateOf(false) }
+    LaunchedEffect(ready) {
+        if (!ready || done) return@LaunchedEffect
+        repeat(20) {
+            withFrameNanos { }
+            if (runCatching { requester.requestFocus() }.isSuccess) {
+                done = true
+                return@LaunchedEffect
+            }
+        }
+    }
+    return requester
+}
+
+/** Launches a system picker; devices without a documents UI show a message instead of crashing. */
+fun <I> ActivityResultLauncher<I>.launchSafely(input: I, context: Context) {
+    try {
+        launch(input)
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, "No app on this device can open the system file picker.", Toast.LENGTH_LONG).show()
     }
 }
 
@@ -263,18 +339,21 @@ fun <T> ChoiceDialog(
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val initialIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val initial = rememberInitialFocus()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            LazyColumn(Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            LazyColumn(Modifier.heightIn(max = 320.dp), state = listState, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(options) { (value, label) ->
                     val shape = RoundedCornerShape(10.dp)
-                    val isInitial = value == selected || (selected == null && value == options.first().first)
+                    val isInitial = value == options.getOrNull(initialIndex)?.first
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .let { if (isInitial) it.initialFocus() else it }
+                            .let { if (isInitial) it.focusRequester(initial) else it }
                             .focusRing(shape)
                             .clickable { onSelect(value) }
                             .heightIn(min = 48.dp)

@@ -39,21 +39,29 @@ class OnboardingViewModel(private val c: AppContainer) : ViewModel() {
         if (step == OnboardingStep.CONFIG) refreshStatuses()
     }
 
-    fun addRomFolder(uri: Uri) = viewModelScope.launch { _error.value = folders.addRomFolder(uri) }
-    fun removeRomFolder(treeUri: String) = viewModelScope.launch { folders.removeRomFolder(treeUri) }
+    fun addRomFolder(uri: Uri) {
+        viewModelScope.launch { _error.value = folders.addRomFolder(uri) }
+    }
+    fun removeRomFolder(treeUri: String) {
+        viewModelScope.launch { folders.removeRomFolder(treeUri) }
+    }
     fun cancelScan() = c.scanner.cancel()
     fun rescan() = c.scanner.start(force = false)
 
-    fun grant(def: EmulatorDef, uri: Uri) = viewModelScope.launch {
-        _statuses.value = _statuses.value + (def.emulatorId to folders.grantEmulatorFolder(def, uri))
+    fun grant(def: EmulatorDef, uri: Uri) {
+        viewModelScope.launch {
+            _statuses.value = _statuses.value + (def.emulatorId to folders.grantEmulatorFolder(def, uri))
+        }
     }
 
-    private fun refreshStatuses() = viewModelScope.launch {
-        _statuses.value = emulators.associate { it.emulatorId to folders.status(it) }
+    private fun refreshStatuses() {
+        viewModelScope.launch { _statuses.value = emulators.associate { it.emulatorId to folders.status(it) } }
     }
 
-    fun finish(onDone: () -> Unit) = viewModelScope.launch {
-        c.settings.update { it.copy(onboardingDone = true) }
-        onDone()
+    fun finish(onDone: () -> Unit) {
+        viewModelScope.launch {
+            c.settings.update { it.copy(onboardingDone = true) }
+            onDone()
+        }
     }
 }

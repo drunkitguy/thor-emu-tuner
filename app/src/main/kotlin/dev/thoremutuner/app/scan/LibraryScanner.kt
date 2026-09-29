@@ -27,6 +27,8 @@ data class ScanProgress(
     val running: Boolean = false,
     val found: Int = 0,
     val probed: Int = 0,
+    /** Probed games that have a detected game ID. */
+    val withId: Int = 0,
     val bySystem: Map<SystemId, Int> = emptyMap(),
     val errors: Int = 0,
     val unreadableFolders: Int = 0,
@@ -67,6 +69,7 @@ class LibraryScanner(
         val results = mutableListOf<Game>()
         var unreadable = 0
         val probed = AtomicInteger()
+        val withId = AtomicInteger()
         val found = AtomicInteger()
         for (folder in folders) {
             if (!saf.hasPermission(folder.treeUri, write = false)) {
@@ -93,8 +96,9 @@ class LibraryScanner(
                         permits.withPermit {
                             val g = scanner.probe(c, access, cache[Scanner.gameKey(folder.treeUri, c.entry.documentId)], force)
                             val n = probed.incrementAndGet()
+                            if (g.id != null) withId.incrementAndGet()
                             if (n % 5 == 0 || n == found.get()) {
-                                state.value = state.value.copy(probed = n)
+                                state.value = state.value.copy(probed = n, withId = withId.get())
                             }
                             g
                         }
@@ -114,6 +118,7 @@ class LibraryScanner(
             running = false,
             found = found.get(),
             probed = probed.get(),
+            withId = deduped.count { it.id != null },
             bySystem = deduped.groupingBy { it.system }.eachCount(),
             errors = deduped.count { it.scanError != null },
             unreadableFolders = unreadable,

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package dev.thoremutuner.app.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
@@ -11,11 +13,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,12 +27,18 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -45,7 +55,6 @@ import dev.thoremutuner.app.ui.common.ScreenScaffold
 import dev.thoremutuner.app.ui.common.Tag
 import dev.thoremutuner.app.ui.common.TextInputDialog
 import dev.thoremutuner.app.ui.common.focusRing
-import dev.thoremutuner.app.ui.common.initialFocus
 import dev.thoremutuner.app.ui.theme.ErrorColor
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.ui.theme.WarnColor
@@ -61,7 +70,29 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
     val scan by vm.scan.collectAsStateWithLifecycle()
     val live by vm.live.collectAsStateWithLifecycle()
     var searching by remember { mutableStateOf(false) }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh() }
+    val listState = rememberLazyListState()
+    // Focus: first row on the first visit; on return, the row of the game that was opened.
+    // Requested only on resume, so filter changes and scrolling never steal focus.
+    var lastOpened by rememberSaveable { mutableStateOf<String?>(null) }
+    val rowFocus = remember { FocusRequester() }
+    var resumeToken by remember { mutableIntStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        vm.refresh()
+        resumeToken++
+    }
+    val visibleNow = ui.visible
+    val focusKey = lastOpened?.takeIf { k -> visibleNow.any { it.game.key == k } } ?: visibleNow.firstOrNull()?.game?.key
+    LaunchedEffect(resumeToken, focusKey != null) {
+        if (focusKey == null) return@LaunchedEffect
+        repeat(20) {
+            withFrameNanos { }
+            if (runCatching { rowFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
+    val open: (String) -> Unit = { key ->
+        lastOpened = key
+        openGame(key)
+    }
     if (searching) {
         TextInputDialog(
             title = "Search",
@@ -76,6 +107,7 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
     ScreenScaffold(
         title = "Library",
         onBack = null,
+        scrollState = listState,
         actions = {
             IconButton(onClick = { searching = true }, modifier = Modifier.focusRing(RoundedCornerShape(24.dp))) {
                 Icon(Icons.Filled.Search, contentDescription = "Search")
@@ -89,7 +121,7 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
         },
     ) { pad ->
         val visible = ui.visible
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             live?.let { l ->
                 item {
                     Banner(
@@ -156,7 +188,7 @@ fun LibraryScreen(container: AppContainer, openGame: (String) -> Unit, openSetti
                 item { EmptyState("No games match the filters.") }
             }
             items(visible, key = { it.game.key }) { row ->
-                GameRowItem(row, onClick = { openGame(row.game.key) }, modifier = if (row == visible.first()) Modifier.initialFocus() else Modifier)
+                GameRowItem(row, onClick = { open(row.game.key) }, modifier = if (row.game.key == focusKey) Modifier.focusRequester(rowFocus) else Modifier)
             }
             item { Spacer(Modifier.height(24.dp)) }
         }

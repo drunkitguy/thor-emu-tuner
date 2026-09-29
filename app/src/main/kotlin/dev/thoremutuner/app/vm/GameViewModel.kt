@@ -59,9 +59,11 @@ class GameViewModel(private val c: AppContainer, private val key: String) : View
     private val _ui = MutableStateFlow(GameUi())
     val ui: StateFlow<GameUi> = _ui.asStateFlow()
 
-    fun refresh() = viewModelScope.launch {
-        val next = withContext(Dispatchers.IO) { load() }
-        _ui.value = next.copy(message = _ui.value.message)
+    fun refresh() {
+        viewModelScope.launch {
+            val next = withContext(Dispatchers.IO) { load() }
+            _ui.value = next.copy(message = _ui.value.message)
+        }
     }
 
     private suspend fun load(): GameUi {
@@ -94,17 +96,21 @@ class GameViewModel(private val c: AppContainer, private val key: String) : View
         )
     }
 
-    fun selectEmulator(emulatorId: String) = viewModelScope.launch {
-        c.settings.update { it.copy(gameEmulator = it.gameEmulator + (key to emulatorId)) }
-        refresh()
+    fun selectEmulator(emulatorId: String) {
+        viewModelScope.launch {
+            c.settings.update { it.copy(gameEmulator = it.gameEmulator + (key to emulatorId)) }
+            refresh()
+        }
     }
 
-    fun selectCore(libraryName: String) = viewModelScope.launch {
-        val game = _ui.value.game ?: return@launch
-        val def = _ui.value.selected?.def ?: return@launch
-        val core = def.configTarget.cores.firstOrNull { it.libraryName == libraryName } ?: return@launch
-        c.settings.update { it.copy(preferredCore = it.preferredCore + (game.system.id to core.coreFile)) }
-        refresh()
+    fun selectCore(libraryName: String) {
+        viewModelScope.launch {
+            val game = _ui.value.game ?: return@launch
+            val def = _ui.value.selected?.def ?: return@launch
+            val core = def.configTarget.cores.firstOrNull { it.libraryName == libraryName } ?: return@launch
+            c.settings.update { it.copy(preferredCore = it.preferredCore + (game.system.id to core.coreFile)) }
+            refresh()
+        }
     }
 
     /** Validates and stores a manual id. Returns an error message or null. */
@@ -114,32 +120,41 @@ class GameViewModel(private val c: AppContainer, private val key: String) : View
         return if (IdValidation.normalize(kind, input) == null) "Expected ${IdValidation.hint(kind)}" else null
     }
 
-    fun setManualId(input: String) = viewModelScope.launch {
-        val game = _ui.value.game ?: return@launch
-        val kind = IdValidation.kindFor(game.system)
-        val value = IdValidation.normalize(kind, input) ?: return@launch
-        c.library.updateGame(key) { it.copy(id = DetectedId(value, kind, DetectionMethod.MANUAL)) }
-        refresh()
+    fun setManualId(input: String) {
+        viewModelScope.launch {
+            val game = _ui.value.game ?: return@launch
+            val kind = IdValidation.kindFor(game.system)
+            val value = IdValidation.normalize(kind, input) ?: return@launch
+            c.library.updateGame(key) { it.copy(id = DetectedId(value, kind, DetectionMethod.MANUAL)) }
+            refresh()
+        }
     }
 
     fun dismissMessage() { _ui.value = _ui.value.copy(message = null) }
 
+    /** Closing the one-time tip without choosing "Launch" must not launch anything. */
+    fun dismissHint() { _ui.value = _ui.value.copy(showFolderHint = false) }
+
     /** First launch per emulator shows the folder-access hint (PLAN section 8.6). */
-    fun requestLaunch(context: Context) = viewModelScope.launch {
-        val sel = _ui.value.selected ?: return@launch
-        val hint = "folderHint:${sel.def.emulatorId}"
-        if (hint !in c.settings.get().hintsShown) {
-            _ui.value = _ui.value.copy(showFolderHint = true)
-            return@launch
+    fun requestLaunch(context: Context) {
+        viewModelScope.launch {
+            val sel = _ui.value.selected ?: return@launch
+            val hint = "folderHint:${sel.def.emulatorId}"
+            if (hint !in c.settings.get().hintsShown) {
+                _ui.value = _ui.value.copy(showFolderHint = true)
+                return@launch
+            }
+            launch(context)
         }
-        launch(context)
     }
 
-    fun confirmHintAndLaunch(context: Context) = viewModelScope.launch {
-        val sel = _ui.value.selected ?: return@launch
-        c.settings.update { it.copy(hintsShown = it.hintsShown + "folderHint:${sel.def.emulatorId}") }
-        _ui.value = _ui.value.copy(showFolderHint = false)
-        launch(context)
+    fun confirmHintAndLaunch(context: Context) {
+        viewModelScope.launch {
+            val sel = _ui.value.selected ?: return@launch
+            c.settings.update { it.copy(hintsShown = it.hintsShown + "folderHint:${sel.def.emulatorId}") }
+            _ui.value = _ui.value.copy(showFolderHint = false)
+            launch(context)
+        }
     }
 
     private suspend fun launch(context: Context) {

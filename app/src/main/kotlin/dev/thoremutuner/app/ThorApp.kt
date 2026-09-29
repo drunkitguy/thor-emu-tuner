@@ -57,7 +57,7 @@ class AppContainer(context: Context) {
 
     val battery = BatterySampler(appContext)
     val thermal = ThermalSampler(appContext)
-    val sessions = SessionController(appContext, store, sessionRepo, battery)
+    val sessions = SessionController(appContext, store, sessionRepo, battery, appScope)
 
     /** This app's own versionName (for exports). */
     val appVersion: String by lazy {

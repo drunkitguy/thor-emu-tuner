@@ -28,16 +28,18 @@ class HistoryViewModel(private val c: AppContainer, private val key: String) : V
         refresh()
     }
 
-    fun refresh() = viewModelScope.launch {
-        val game = c.library.get().games.firstOrNull { it.key == key }
-        val sessions = c.sessionRepo.get(key)
-        _ui.value = _ui.value.copy(
-            game = game,
-            groups = Comparison.groupByRevision(sessions),
-            emulatorNames = c.presets.emulators.associate { it.emulatorId to it.name },
-            selected = _ui.value.selected.filter { id -> sessions.any { it.id == id } },
-            loaded = true,
-        )
+    fun refresh() {
+        viewModelScope.launch {
+            val game = c.library.get().games.firstOrNull { it.key == key }
+            val sessions = c.sessionRepo.get(key)
+            _ui.value = _ui.value.copy(
+                game = game,
+                groups = Comparison.groupByRevision(sessions),
+                emulatorNames = c.presets.emulators.associate { it.emulatorId to it.name },
+                selected = _ui.value.selected.filter { id -> sessions.any { it.id == id } },
+                loaded = true,
+            )
+        }
     }
 
     /** Select up to two sessions for A/B; a third selection replaces the oldest. */
@@ -46,9 +48,11 @@ class HistoryViewModel(private val c: AppContainer, private val key: String) : V
         _ui.value = _ui.value.copy(selected = if (id in sel) sel - id else (sel + id).takeLast(2))
     }
 
-    fun delete(id: String) = viewModelScope.launch {
-        c.sessionRepo.delete(key, id)
-        refresh()
+    fun delete(id: String) {
+        viewModelScope.launch {
+            c.sessionRepo.delete(key, id)
+            refresh()
+        }
     }
 }
 

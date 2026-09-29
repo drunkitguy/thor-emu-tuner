@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package dev.thoremutuner.app.ui.test
 
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.focusable
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -46,7 +50,8 @@ import dev.thoremutuner.app.ui.common.SectionCard
 import dev.thoremutuner.app.ui.common.TextInputDialog
 import dev.thoremutuner.app.ui.common.ThorButton
 import dev.thoremutuner.app.ui.common.focusRing
-import dev.thoremutuner.app.ui.common.initialFocus
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
+import androidx.compose.ui.focus.focusRequester
 import dev.thoremutuner.app.ui.theme.ErrorColor
 import dev.thoremutuner.app.ui.theme.OkColor
 import dev.thoremutuner.app.ui.theme.WarnColor
@@ -69,16 +74,22 @@ fun TestScreen(container: AppContainer, key: String, emulatorId: String, onBack:
     }
     LaunchedEffect(ui.started) { if (ui.started && ui.message == null) openResult() }
 
-    ScreenScaffold("Run test" + (ui.def?.let { " · ${it.name}" } ?: ""), onBack = onBack) { pad ->
+    val scroll = rememberScrollState()
+    val firstFocus = rememberInitialFocus(ready = ui.loaded)
+    ScreenScaffold("Run test" + (ui.def?.let { " · ${it.name}" } ?: ""), onBack = onBack, scrollState = scroll) { pad ->
         if (ui.def == null) {
             EmptyState("Unknown emulator"); return@ScreenScaffold
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(pad), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(pad), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (ui.liveSession) {
+                Banner("Finish or discard the current test first.", BannerKind.WARN, actionLabel = "Open", onAction = openResult)
+            }
             ui.message?.let { m ->
                 Banner(m, if (ui.started) BannerKind.WARN else BannerKind.INFO, actionLabel = if (ui.started) "Continue" else null, onAction = if (ui.started) openResult else null)
             }
             SectionCard("Before you start") {
-                Check(!ui.charging, blocking = true, if (ui.charging) "Unplug the charger (power readings are meaningless while charging)" else "Not charging")
+                Check(!ui.charging, blocking = true, if (ui.charging) "Unplug the charger (power readings are meaningless while charging)" else "Not charging",
+                    modifier = Modifier.focusRequester(firstFocus))
                 Check(!ui.lowBattery, blocking = false, "Battery ${ui.battery?.levelPct ?: "?"}%" + if (ui.lowBattery) " (below 20%: results may be affected)" else "")
                 Check(!ui.externalDisplay, blocking = false, if (ui.externalDisplay) "External display attached (Azahar may move output; results not comparable)" else "No external display")
                 Check(ui.target != null, blocking = true, ui.target?.let { "Emulator installed (${it.versionName ?: "unknown version"})" } ?: "Emulator not installed")
@@ -114,7 +125,7 @@ fun TestScreen(container: AppContainer, key: String, emulatorId: String, onBack:
                 },
                 enabled = ui.canStart,
                 icon = Icons.Filled.PlayArrow,
-                modifier = Modifier.fillMaxWidth().initialFocus(),
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(24.dp))
         }
@@ -137,13 +148,14 @@ private fun ModeDialog(title: String, suggestions: List<String>, current: String
 }
 
 @Composable
-private fun Check(ok: Boolean, blocking: Boolean, text: String) {
+private fun Check(ok: Boolean, blocking: Boolean, text: String, modifier: Modifier = Modifier) {
     val color = when {
         ok -> OkColor
         blocking -> ErrorColor
         else -> WarnColor
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+    // Focusable so the D-pad can walk through the checklist (read-only rows).
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier.fillMaxWidth().focusRing(RoundedCornerShape(8.dp)).focusable().padding(4.dp)) {
         Text(if (ok) "✓" else if (blocking) "✗" else "!", color = color, style = MaterialTheme.typography.titleMedium)
         Text(text, color = if (ok) MaterialTheme.colorScheme.onSurface else color)
     }

@@ -1,5 +1,12 @@
 package dev.thoremutuner.app.ui.tweak
 
+import dev.thoremutuner.app.ui.common.ConfirmDialog
+import dev.thoremutuner.app.ui.common.rememberInitialFocus
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,7 +58,6 @@ import dev.thoremutuner.app.ui.common.Tag
 import dev.thoremutuner.app.ui.common.TextInputDialog
 import dev.thoremutuner.app.ui.common.ThorButton
 import dev.thoremutuner.app.ui.common.focusRing
-import dev.thoremutuner.app.ui.common.initialFocus
 import dev.thoremutuner.app.ui.theme.ErrorColor
 import dev.thoremutuner.app.ui.theme.WarnColor
 import dev.thoremutuner.app.vm.ManualRow
@@ -68,18 +74,34 @@ fun TweakScreen(container: AppContainer, key: String, emulatorId: String, onBack
     val vm = viewModel(key = "tweak-$key-$emulatorId") { TweakViewModel(container, key, emulatorId) }
     val ui by vm.ui.collectAsStateWithLifecycle()
     var askNote by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
     LaunchedEffect(ui.saved) { if (ui.saved) onBack() }
     val def = ui.def
+    // B / system back and the top-bar back never drop unsaved edits silently.
+    val back: () -> Unit = { if (ui.dirty) confirmDiscard = true else onBack() }
+    BackHandler(enabled = ui.dirty) { confirmDiscard = true }
+    val listState = rememberLazyListState()
+    val firstFocus = rememberInitialFocus(ready = ui.loaded)
     ScreenScaffold(
         title = if (def?.isFull == false) "Manual settings · ${def.name}" else "Tweak" + (def?.let { " · ${it.name}" } ?: ""),
-        onBack = onBack,
+        onBack = back,
+        scrollState = listState,
         actions = { ThorButton("Save", { askNote = true }, enabled = ui.loaded && ui.errors.isEmpty()) },
     ) { pad ->
         if (def == null) {
             EmptyState("Unknown emulator"); return@ScreenScaffold
         }
         if (!ui.loaded) return@ScreenScaffold
-        if (def.isFull) FullEditor(vm, ui, pad) else ManualEditor(vm, ui, pad)
+        if (def.isFull) FullEditor(vm, ui, pad, listState, firstFocus) else ManualEditor(vm, ui, pad, listState, firstFocus)
+    }
+    if (confirmDiscard) {
+        ConfirmDialog(
+            "Discard unsaved changes?",
+            "Your edits have not been saved as a revision.",
+            "Discard",
+            onConfirm = { confirmDiscard = false; onBack() },
+            onDismiss = { confirmDiscard = false },
+        )
     }
     if (askNote) {
         TextInputDialog(
@@ -95,11 +117,17 @@ fun TweakScreen(container: AppContainer, key: String, emulatorId: String, onBack
 }
 
 @Composable
-private fun FullEditor(vm: TweakViewModel, ui: TweakUi, pad: androidx.compose.foundation.layout.PaddingValues) {
+private fun FullEditor(
+    vm: TweakViewModel,
+    ui: TweakUi,
+    pad: androidx.compose.foundation.layout.PaddingValues,
+    listState: LazyListState,
+    firstFocus: FocusRequester,
+) {
     val def = ui.def!!
     val visible = def.settings.filter { ui.showAdvanced || !it.advanced }
     val groups = visible.groupBy { it.group }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Text(
                 (ui.baseRev?.let { "Editing a copy of rev $it. " } ?: "No baseline chosen yet: only settings you set are written. ") +
@@ -119,14 +147,16 @@ private fun FullEditor(vm: TweakViewModel, ui: TweakUi, pad: androidx.compose.fo
         }
         groups.forEach { (group, settings) ->
             item { Text(group, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
-            items(settings, key = { "${it.section}/${it.key}" }) { s -> SettingRow(vm, ui, s, first = s == visible.first()) }
+            items(settings, key = { "${it.section}/${it.key}" }) { s ->
+                SettingRow(vm, ui, s, firstModifier = if (s == visible.first()) Modifier.focusRequester(firstFocus) else Modifier)
+            }
         }
         item { Spacer(Modifier.height(32.dp)) }
     }
 }
 
 @Composable
-private fun SettingRow(vm: TweakViewModel, ui: TweakUi, s: SettingDef, first: Boolean) {
+private fun SettingRow(vm: TweakViewModel, ui: TweakUi, s: SettingDef, firstModifier: Modifier) {
     val ref = SettingValue.refOf(s.section, s.key)
     val value = ui.value(s)
     val base = ui.baselineValue(s)
@@ -146,10 +176,9 @@ private fun SettingRow(vm: TweakViewModel, ui: TweakUi, s: SettingDef, first: Bo
         if (value == null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Not managed: the emulator's own setting applies.", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ThorButton("Set", { vm.manage(s) }, style = ButtonStyle.SECONDARY, modifier = if (first) Modifier.initialFocus() else Modifier)
+                ThorButton("Set", { vm.manage(s) }, style = ButtonStyle.SECONDARY, modifier = firstModifier)
             }
         } else {
-            val firstModifier = if (first) Modifier.initialFocus() else Modifier
             when (s.type) {
                 SettingType.ENUM -> ThorButton(s.optionLabel(value) ?: value, { choose = true }, modifier = firstModifier, style = ButtonStyle.SECONDARY)
                 SettingType.BOOL -> {
@@ -231,16 +260,22 @@ private fun rangeText(s: SettingDef): String =
     if (s.min != null || s.max != null) " (${s.min?.let { PresetResolver.formatNumber(it) } ?: "…"}-${s.max?.let { PresetResolver.formatNumber(it) } ?: "…"})" else ""
 
 @Composable
-private fun ManualEditor(vm: TweakViewModel, ui: TweakUi, pad: androidx.compose.foundation.layout.PaddingValues) {
+private fun ManualEditor(
+    vm: TweakViewModel,
+    ui: TweakUi,
+    pad: androidx.compose.foundation.layout.PaddingValues,
+    listState: LazyListState,
+    firstFocus: FocusRequester,
+) {
     var editing by remember { mutableStateOf<ManualRow?>(null) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Banner(
                 "${ui.def!!.name} is reference-only: Thor Emu Tuner never writes its files. Keep a list of what you set inside the emulator; test sessions are linked to these revisions so you can compare them.",
                 BannerKind.INFO,
             )
         }
-        item { ThorButton("Add setting", { editing = vm.newManualRow() }, icon = Icons.Filled.Add, modifier = Modifier.initialFocus()) }
+        item { ThorButton("Add setting", { editing = vm.newManualRow() }, icon = Icons.Filled.Add, modifier = Modifier.focusRequester(firstFocus)) }
         if (ui.manual.isEmpty()) item { EmptyState("No settings yet. Choose a baseline or add one.") }
         items(ui.manual, key = { it.id }) { row ->
             SectionCard {

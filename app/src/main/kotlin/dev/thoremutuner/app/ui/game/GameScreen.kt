@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package dev.thoremutuner.app.ui.game
 
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -75,14 +78,15 @@ fun GameScreen(
     var editId by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh() }
 
-    ScreenScaffold(title = ui.game?.title ?: "Game", onBack = onBack) { pad ->
+    val scroll = rememberScrollState()
+    ScreenScaffold(title = ui.game?.title ?: "Game", onBack = onBack, scrollState = scroll) { pad ->
         if (ui.notFound) {
             EmptyState("This game is no longer in the library. Rescan or go back.")
             return@ScreenScaffold
         }
         val game = ui.game ?: return@ScreenScaffold
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(pad),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(pad),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ui.message?.let { m ->
@@ -200,10 +204,11 @@ fun GameScreen(
     }
     if (ui.showFolderHint) {
         AlertDialog(
-            onDismissRequest = { vm.confirmHintAndLaunch(context) },
+            onDismissRequest = { vm.dismissHint() },
             title = { Text("One-time tip") },
             text = { Text("If the emulator says it cannot open the file, add this ROM folder inside the emulator too. Many emulators need their own access to your games folder.") },
             confirmButton = { ThorButton("Launch", { vm.confirmHintAndLaunch(context) }) },
+            dismissButton = { ThorButton("Cancel", { vm.dismissHint() }, style = ButtonStyle.TEXT) },
         )
     }
 }
