@@ -35,7 +35,7 @@
     {
       "id": "thor-balanced",
       "name": "Thor Balanced (manual)",
-      "evidence": "sd8g2-general",
+      "evidence": "inferred",
       "description": "Vulkan, 3x native, readbacks disabled. Apply in NetherSX2 > Game Properties (per game) or Settings (global).",
       "values": [
         { "section": "EmuCore/GS", "key": "Renderer", "value": "Vulkan", "uiPath": "Settings > Graphics > GPU Renderer", "uiValue": "Vulkan", "description": "Vulkan renderer.",
@@ -55,7 +55,7 @@
     {
       "id": "thor-performance",
       "name": "Thor Performance (manual)",
-      "evidence": "sd8g2-general",
+      "evidence": "inferred",
       "description": "2x native, readbacks disabled; for heavy games.",
       "values": [
         { "section": "EmuCore/GS", "key": "Renderer", "value": "Vulkan", "uiPath": "Settings > Graphics > GPU Renderer", "uiValue": "Vulkan", "description": "Vulkan renderer.",

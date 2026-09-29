@@ -104,7 +104,7 @@
     {
       "id": "thor-dual-screen",
       "name": "Thor Dual Screen (layout only)",
-      "evidence": "thor",
+      "evidence": "inferred",
       "description": "3DS top screen on the Thor top display, 3DS bottom screen on the Thor bottom display. Combine with any performance preset.",
       "values": [
         { "section": "Layout", "key": "layout_option", "value": "1", "description": "Single screen on the main (top) display.",

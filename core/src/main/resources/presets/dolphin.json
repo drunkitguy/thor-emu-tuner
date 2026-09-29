@@ -161,7 +161,7 @@
     {
       "id": "thor-balanced",
       "name": "Thor Balanced",
-      "evidence": "odin2",
+      "evidence": "inferred",
       "description": "Vulkan, 3x internal resolution (matches the 1080p top screen), asynchronous ubershaders. Starting point for most GC/Wii games on Snapdragon 8 Gen 2.",
       "values": [
         { "section": "Core", "key": "GFXBackend", "value": "Vulkan", "description": "Render with Vulkan.",
